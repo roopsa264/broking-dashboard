@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Broking Research Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0f12;
+    --surface: #14171c;
+    --surface2: #1c2028;
+    --border: #2a2f3a;
+    --accent: #e8b84b;
+    --accent2: #4b8fe8;
+    --text: #e8eaf0;
+    --muted: #7a8090;
+    --green: #4be8a0;
+    --red: #e84b6a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    min-height: 100vh;
+  }
+  header {
+    padding: 24px 32px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--surface);
+  }
+  header h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 22px;
+    color: var(--accent);
+    letter-spacing: 0.3px;
+  }
+  header span {
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .api-bar {
+    padding: 12px 32px;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .api-bar label { color: var(--muted); font-size: 12px; white-space: nowrap; }
+  .api-bar input {
+    flex: 1;
+    max-width: 400px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 7px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: monospace;
+  }
+  .api-bar input:focus { outline: none; border-color: var(--accent); }
+  .api-bar button {
+    background: var(--accent);
+    color: #000;
+    border: none;
+    padding: 7px 18px;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 12px;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  .api-bar button:hover { opacity: 0.85; }
+  .api-bar .status { font-size: 12px; color: var(--muted); }
+  .api-bar .status.ok { color: var(--green); }
+  .api-bar .status.err { color: var(--red); }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    height: calc(100vh - 110px);
+  }
+  .sidebar {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 20px 0;
+    overflow-y: auto;
+  }
+  .sidebar-title {
+    padding: 0 20px 12px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .company-item {
+    padding: 10px 20px;
+    cursor: pointer;
+    border-left: 3px solid transparent;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .company-item:hover { background: var(--surface2); }
+  .company-item.active {
+    border-left-color: var(--accent);
+    background: var(--surface2);
+    color: var(--accent);
+  }
+  .company-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--border);
+    flex-shrink: 0;
+  }
+  .company-item.active .company-dot { background: var(--accent); }
+  .company-name-text { font-size: 13px; font-weight: 500; }
+
+  .sidebar-divider {
+    margin: 16px 20px;
+    border: none;
+    border-top: 1px solid var(--border);
+  }
+  .sidebar-action {
+    padding: 10px 20px;
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 13px;
+    transition: color 0.15s;
+    border-left: 3px solid transparent;
+  }
+  .sidebar-action:hover { color: var(--accent2); }
+  .sidebar-action.active { color: var(--accent2); border-left-color: var(--accent2); background: var(--surface2); }
+
+  .main {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .tab-bar {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    padding: 0 24px;
+  }
+  .tab {
+    padding: 14px 18px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--muted);
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+    font-weight: 500;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .content-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px 28px;
+  }
+
+  /* Cards */
+  .cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px;
+    transition: border-color 0.2s;
+  }
+  .card:hover { border-color: var(--accent); }
+  .card-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+  .card-value { font-size: 22px; font-family: 'DM Serif Display', serif; color: var(--text); }
+  .card-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+  .section-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 18px;
+    color: var(--accent);
+    margin-bottom: 16px;
+    margin-top: 8px;
+  }
+
+  .insight-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 24px;
+    margin-bottom: 16px;
+    line-height: 1.7;
+    font-size: 13.5px;
+  }
+  .insight-box h3 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 15px;
+    color: var(--accent2);
+    margin-bottom: 10px;
+  }
+
+  .loading {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--muted);
+    font-size: 13px;
+    padding: 20px 0;
+  }
+  .spinner {
+    width: 18px; height: 18px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Chat */
+  .chat-wrap {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+  .chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .msg {
+    display: flex;
+    gap: 12px;
+    max-width: 820px;
+  }
+  .msg.user { flex-direction: row-reverse; align-self: flex-end; }
+  .msg-avatar {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+  .msg.user .msg-avatar { background: var(--accent); color: #000; font-weight: 700; }
+  .msg-bubble {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 16px;
+    line-height: 1.65;
+    font-size: 13.5px;
+    max-width: 700px;
+    white-space: pre-wrap;
+  }
+  .msg.user .msg-bubble {
+    background: var(--surface2);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .chat-input-area {
+    display: flex;
+    gap: 10px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+  .chat-input-area textarea {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 12px 14px;
+    border-radius: 8px;
+    font-size: 13.5px;
+    font-family: 'DM Sans', sans-serif;
+    resize: none;
+    height: 50px;
+    transition: border-color 0.2s;
+  }
+  .chat-input-area textarea:focus { outline: none; border-color: var(--accent); }
+  .send-btn {
+    background: var(--accent);
+    color: #000;
+    border: none;
+    padding: 0 22px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    transition: opacity 0.2s;
+    white-space: nowrap;
+  }
+  .send-btn:hover { opacity: 0.85; }
+  .send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .chat-hint {
+    font-size: 11px;
+    color: var(--muted);
+    padding: 6px 0 0;
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .chat-hint span {
+    cursor: pointer;
+    background: var(--surface2);
+    padding: 3px 10px;
+    border-radius: 20px;
+    transition: color 0.15s;
+  }
+  .chat-hint span:hover { color: var(--accent); }
+
+  /* Company detail */
+  .detail-header {
+    display: flex; align-items: center; gap: 16px; margin-bottom: 20px;
+  }
+  .detail-badge {
+    background: var(--accent);
+    color: #000;
+    font-weight: 700;
+    font-size: 11px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .raw-text {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.6;
+    max-height: 400px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    font-family: monospace;
+  }
+
+  /* Compare table */
+  .compare-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .compare-table th {
+    background: var(--surface2);
+    color: var(--accent);
+    font-weight: 600;
+    padding: 10px 14px;
+    text-align: left;
+    border: 1px solid var(--border);
+    font-family: 'DM Serif Display', serif;
+  }
+  .compare-table td {
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    color: var(--text);
+    vertical-align: top;
+    line-height: 1.5;
+  }
+  .compare-table tr:nth-child(even) td { background: var(--surface); }
+  .no-api {
+    background: var(--surface);
+    border: 1px solid var(--accent);
+    border-radius: 10px;
+    padding: 24px;
+    color: var(--muted);
+    font-size: 13.5px;
+    line-height: 1.7;
+  }
+  .no-api strong { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>&#9670; Broking &amp; Fintech Research Dashboard</h1>
+  <span id="doc-count">5 companies loaded</span>
+</header>
+
+<div class="api-bar">
+  <label>Gemini API Key</label>
+  <input type="password" id="api-key-input" placeholder="OpenRouter API key (sk-or-...)" />
+  <button onclick="saveKey()">Connect</button>
+  <span class="status" id="key-status">Not connected</span>
+  <span style="color:var(--muted);font-size:11px;margin-left:12px;">Get free key at openrouter.ai/keys</span>
+</div>
+
+<div class="layout">
+  <div class="sidebar">
+    <div class="sidebar-title">Views</div>
+    <div class="sidebar-action active" id="nav-overview" onclick="showView('overview')">&#9632; Overview Dashboard</div>
+    <div class="sidebar-action" id="nav-compare" onclick="showView('compare')">&#9700; Compare All</div>
+    <div class="sidebar-action" id="nav-chat" onclick="showView('chat')">&#9993; Ask the Agent</div>
+    <hr class="sidebar-divider">
+    <div class="sidebar-title">Companies</div>
+    <div class="company-item" id="nav-Groww" onclick="showCompany('Groww')">
+      <div class="company-dot"></div>
+      <span class="company-name-text">Groww</span>
+    </div><div class="company-item" id="nav-Kotak" onclick="showCompany('Kotak')">
+      <div class="company-dot"></div>
+      <span class="company-name-text">Kotak</span>
+    </div><div class="company-item" id="nav-Motilal-Oswal" onclick="showCompany('Motilal Oswal')">
+      <div class="company-dot"></div>
+      <span class="company-name-text">Motilal Oswal</span>
+    </div><div class="company-item" id="nav-Choice" onclick="showCompany('Choice')">
+      <div class="company-dot"></div>
+      <span class="company-name-text">Choice</span>
+    </div><div class="company-item" id="nav-Angel" onclick="showCompany('Angel')">
+      <div class="company-dot"></div>
+      <span class="company-name-text">Angel</span>
+    </div>
+  </div>
+
+  <div class="main">
+    <div id="view-overview" class="content-area">
+      <p class="section-title">Overview Dashboard</p>
+      <div id="overview-content">
+        <div class="no-api">
+          <strong>Connect your Gemini API key above</strong> to auto-generate insights across all 5 companies.<br><br>
+          The dashboard will show a summary of each company, key metrics, themes, and standout observations — all generated from the actual PPT data.
+        </div>
+      </div>
+    </div>
+
+    <div id="view-compare" class="content-area" style="display:none">
+      <p class="section-title">Company Comparison</p>
+      <div id="compare-content">
+        <div class="no-api">
+          <strong>Connect your Gemini API key above</strong> to generate a comparison table across all companies.
+        </div>
+      </div>
+    </div>
+
+    <div id="view-chat" class="content-area" style="display:none">
+      <div class="chat-wrap">
+        <div class="chat-messages" id="chat-messages">
+          <div class="msg">
+            <div class="msg-avatar">AI</div>
+            <div class="msg-bubble">Hello! I have access to investor presentations and annual reports for <strong>Groww, Kotak, Motilal Oswal, Choice, and Angel</strong>. Ask me anything — compare companies, extract specific numbers, find patterns, or ask about a specific firm.</div>
+          </div>
+        </div>
+        <div>
+          <div class="chat-input-area">
+            <textarea id="chat-input" placeholder="Ask a question..." onkeydown="handleKey(event)"></textarea>
+            <button class="send-btn" id="send-btn" onclick="sendChat()">Send</button>
+          </div>
+          <div class="chat-hint">
+            <span onclick="fillQ('Summarise each company in one paragraph')">Summarise each company</span>
+            <span onclick="fillQ('Compare revenue and growth metrics across all companies')">Compare revenue & growth</span>
+            <span onclick="fillQ('What are the key risks mentioned across all decks?')">Key risks</span>
+            <span onclick="fillQ('Which company has the largest user base?')">Largest user base</span>
+            <span onclick="fillQ('What are the business models of each company?')">Business models</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="view-company" class="content-area" style="display:none">
+      <div id="company-content"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const COMPANY_DATA = {"Groww": "[Slide 1] Groww logo | April 20, 2026 | To,                                      To,\nThe Listing Department,                  The Listing Department\nBSE Limited,                             National Stock Exchange of India Ltd.,\nPhiroze Jeejeebhoy Towers,               Exchange Plaza,\nDalal Street,                            Bandra Kurla Complex, Bandra\nMumbai – 400001                          (East),\nScrip code: 544603                       Mumbai – 400051\nSymbol: GROWW | Dear Sir / Madam, | Sub.: Outcome of the Board Meeting | Pursuant to Regulation 30 of SEBI (Listing Obligations and Disclosure Requirements) Regulations, 2015 (“Listing Regulations”), we wish to inform you that the Board of Directors (the “Board”) of the Billionbrains Garage Ventures Limited (“Company”), at its meeting held today has, inter alia, taken the following actions: | 1. Approved the Audited standalone and consolidated financial results of the Company for the quarter and year ended March 31, 2026 (the “Audited Financial Results”). The Copy of the Audited Financial Results along with the Audit Report received from our Statutory Auditors, M/s. BSR & Co. LLP, Chartered Accountants is enclosed herewith. | A Declaration from the Chief Financial Officer regarding unmodified opinion in the Audit Report issued by the statutory auditor of the Company on Audited financial results for the Financial Year ended March 31, 2026. A copy of the same is enclosed herewith. | 2. Based on the recommendation of the Audit Committee, the Board of the Company approved the appointment of M/s Nilesh Shah & Associates, Practising Company Secretaries, (FRN P2003MH008800) as the Secretarial Auditors of the Company for five consecutive years commencing from FY 2026-27 until FY 2030-31, subject to the approval of the shareholders of the Company at the ensuing Annual General Meeting.\n\n3. Noted the resignation of Mr. Ashish Agrawal (DIN: 03295209), Nominee Director, vide letter dated April 20, 2026, effective from April 20, 2026. Consequently, he cease to be a member of the Corporate Social Responsibility Committee and Stakeholder Relationship Committee of the Company. The copy of the resignation letter is attached herewith. | The Board of Directors of the Company place on record its appreciation for the valuable contribution and advice provided by Mr. Ashish Agrawal during his association with the Company as a Nominee Director. | **Billionbrains Garage Ventures Limited** (Formerly known as *Billionbrains Garage Ventures Private Limited*)\n\n**Registered Office:**\nVaishnavi Tech Park, South Tower, 3rd Floor, Survey No.16/1 and 17/2, Ambalipura Village, Varthur Hobli, Bellandur, Bangalore, Bangalore South, Karnataka, India, 560103\n\nW: www.groww.in E:corp.secretarial@groww.in T: +91 80-69601300 CIN: L72900KA2018PLC109343\n[Slide 2] Groww logo | The details required under Regulation 30 read with Para A of Part A of Schedule III of the Listing Regulations and the SEBI circular HO/49/14/14(7)2025-CFD-POD2/I/3762/2026 dated January 30, 2026, is annexed herewith as Annexure – A for Item Nos. 2 and 3. | The Board Meeting commenced at 11:00 a.m. (IST) and concluded at 12:40 p.m. (IST). | In compliance with the aforesaid regulation, the aforesaid information is also being made available on the Company's website i.e. | [www.groww.in](http://www.groww.in) | . | Kindly take the same on record and oblige. | Thanking you, | For Billionbrains Garage Ventures Limited\n(Formerly known as Billionbrains Garage Ventures Private Limited) | ROSHAN BHANUPRAKASH DAVE\nDigitally signed by ROSHAN BHANUPRAKASH DAVE\nDate: 2026.04.20 12:58:58 +05'30' | Roshan Dave\nCompany Secretary and Compliance Officer | Encl.: As above | Billionbrains Garage Ventures Limited (Formerly known as Billionbrains Garage Ventures Private Limited)\n\n**Registered Office:**\n\nVaishnavi Tech Park, South Tower, 3rd Floor, Survey No.16/1 and 17/2, Ambalipura Village, Varthur Hobli, Bellandur, Bangalore, Bangalore South, Karnataka, India, 560103\n\nW: www.groww.in E:corp.secretarial@groww.in T: +91 80-69601300 CIN: L72900KA2018PLC109343\n[Slide 3] B S R & Co. LLP Chartered Accountants logo | Embassy Golf Links Business Park\nPebble Beach, B Block, 3rd Floor\nNo. 13/2, off Intermediate Ring Road\nBengaluru - 560 071, India\nTelephone: +91 80 4682 3000\nFax: +91 80 4682 3999 | Independent Auditor’s Report | To the Board of Directors of Billionbrains Garage Ventures Limited (formerly known as Billionbrains Garage Ventures Private Limited) | Report on the audit of the Consolidated Annual Financial Results | Opinion | We have audited the accompanying consolidated annual financial results of Billionbrains Garage Ventures Limited (formerly known as Billionbrains Garage Ventures Private Limited) (hereinafter referred to as the “Holding Company”) and its subsidiaries (Holding Company and its subsidiaries together referred to as “the Group”), its associate for the year ended 31 March 2026, attached herewith, (in which are included financial information of an Employee Stock Option Plan (ESOP) trust) being submitted by the Holding Company pursuant to the requirement of Regulation 33 of the Securities and Exchange Board of India (Listing Obligations and Disclosure Requirements) Regulations, 2015, as amended (\"Listing Regulations\"). | Attention is drawn to the fact that the figures for the quarter ended 31 March 2025, as reported in these consolidated annual financial results have been approved by the Holding Company’s Board of Directors, but have not been subjected to audit since the Holding Company got listed during the quarter ended 31 December 2025 and the requirement for submission of financial results was not applicable prior to the listing of the Holding Company's equity shares. | In our opinion and to the best of our information and according to the explanations given to us and based on the consideration of report of other auditors on separate audited financial statements of the subsidiaries, the aforesaid consolidated annual financial results: | a. include the annual financial results of the entities mentioned in Annexure I to the aforesaid consolidated annual financial results | b. are presented in accordance with the requirements of Regulation 33 of the Listing Regulations in this regard; and | c. give a true and fair view in conformity with the recognition and measurement principles laid down in the applicable Indian Accounting Standards, and other accounting principles generally accepted in India, of consolidated net profit and other comprehensive income and other financial information of the Group for the year ended 31 March 2026. | Basis for Opinion | We conducted our audit in accordance with the Standards on Auditing (“SAs”) specified under section 143(10) of the Companies Act, 2013 (“the Act”). Our responsibilities under those SAs are further described in the Auditor’s Responsibilities for the Audit of the Consolidated Annual Financial Results section of our report. We are independent of the Group and its associate in accordance with the Code of Ethics issued by the Institute of Chartered Accountants of India together with the ethical requirements that are relevant to our audit of the financial statements under the provisions of the Act, and the Rules thereunder, and we have fulfilled our other ethical responsibilities in accordance with these requirements and the Code of Ethics. We believe that the audit evidence obtained by us, along with report of the other auditors is sufficient and appropriate to provide a basis for our opinion on the consolidated annual financial results. | Registered Office:\nB S R & Co. (a partnership firm with Registration No. BA61223) converted into B S R & Co. LLP (a Limited Liability Partnership with LLP Registration No. AAB-8181) with effect from October 14, 2013\n14th Floor, Central B Wing and North C Wing, Nesco IT Park 4, Nesco Center, Western Express Highway, Goregaon (East), Mumbai - 400063\nPage 1 of 5\n[Slide 4] B S R & Co. LLP | Independent Auditor’s Report (Continued) | Billionbrains Garage Ventures Limited (formerly known as Billionbrains Garage Ventures Private Limited) | Management’s and Board of Directors’ Responsibilities for the Consolidated Annual Financial Results | These consolidated annual financial results have been prepared on the basis of the consolidated annual financial statements. | The Holding Company’s Management and the Board of Directors are responsible for the preparation and presentation of these consolidated annual financial results that give a true and fair view of the consolidated net profit/ loss and other comprehensive income and other financial information of the Group including its associate in accordance with the recognition and measurement principles laid down in Indian Accounting Standards prescribed under Section 133 of the Act read with relevant rules issued thereunder and other accounting principles generally accepted in India and in compliance with Regulation 33 of the Listing Regulations. The respective Management and Board of Directors of the companies included in the Group and of its associate are responsible for maintenance of adequate accounting records in accordance with the provisions of the Act for safeguarding of the assets of each company and for preventing and detecting frauds and other irregularities; selection and application of appropriate accounting policies; making judgments and estimates that are reasonable and prudent; and the design, implementation and maintenance of adequate internal financial controls, that were operating effectively for ensuring accuracy and completeness of the accounting records, relevant to the preparation and presentation of the consolidated annual financial results that give a true and fair view and are free from material misstatement, whether due to fraud or error, which have been used for the purpose of preparation of the consolidated annual financial results by the Management and the Board of Directors of the Holding Company, as aforesaid. | In preparing the consolidated annual financial results, the respective Management and the Board of Directors of the companies included in the Group and of its associate are responsible for assessing the ability of each company to continue as a going concern, disclosing, as applicable, matters related to going concern and using the going concern basis of accounting unless the respective Board of Directors either intends to liquidate the entity or to cease operations, or has no realistic alternative but to do so. | The respective Board of Directors of the companies included in the Group and of its associate is responsible for overseeing the financial reporting process of each company. | Auditor’s Responsibilities for the Audit of the Consolidated Annual Financial Results | Our objectives are to obtain reasonable assurance about whether the consolidated annual financial results as a whole are free from material misstatement, whether due to fraud or error, and to issue an auditor’s report that includes our opinion. Reasonable assurance is a high level of assurance, but is not a guarantee that an audit conducted in accordance with SAs will always detect a material misstatement when it exists. Misstatements can arise from fraud or error and are considered material if, individually or in the aggregate, they could reasonably be expected to influence the economic decisions of users taken on the basis of these consolidated annual financial results. | As part of an audit in accordance with SAs, we exercise professional judgment and maintain professional skepticism throughout the audit. We also: | * Identify and assess the risks of material misstatement of the consolidated annual financial results, whether due to fraud or error, design and perform audit procedures responsive to those risks, and obtain audit evidence that is sufficient and appropriate to provide a basis for our opinion. The risk of not detecting a material misstatement resulting from fraud is higher than for one resulting from error, as fraud may involve collusion, forgery, intentional omissions, misrepresentations, or the override of internal control.\n\n* Obtain an understanding of internal control relevant to the audit in order to design audit procedures that are appropriate in the circumstances. Under Section 143(3) (i) of the Act, we are also responsible for expressing our opinion through a separate report on the complete set of financial statements on whether the company has adequate internal financial controls with reference to financial statements in place and the operating effectiveness of such controls.\n\n* Evaluate the appropriateness of accounting policies used and the reasonableness of accounting | Page 2 of 5\n[Slide 5] B S R & Co. LLP | Independent Auditor’s Report (Continued) | Billionbrains Garage Ventures Limited (formerly known as Billionbrains Garage Ventures Private Limited) | estimates and related disclosures in the consolidated annual financial results made by the Management and Board of Directors. | * Conclude on the appropriateness of the Management’s and Board of Directors’ use of the going concern basis of accounting and, based on the audit evidence obtained, whether a material uncertainty exists related to events or conditions that may cast significant doubt on the appropriateness of this assumption. If we conclude that a material uncertainty exists, we are required to draw attention in our auditor’s report to the related disclosures in the consolidated annual financial results or, if such disclosures are inadequate, to modify our opinion. Our conclusions are based on the audit evidence obtained up to the date of our auditor’s report. However, future events or conditions may cause the Group and its associates to cease to continue as a going concern.\n\n* Evaluate the overall presentation, structure and content of the consolidated annual financial results, including the disclosures, and whether the consolidated annual financial results represent the underlying transactions and events in a manner that achieves fair presentation.\n\n* Obtain sufficient appropriate audit evidence regarding the financial results of the entities within the Group and its associates to express an opinion on the consolidated annual financial results. We are responsible for the direction, supervision and performance of the audit of financial results of such entities included in the consolidated annual financial results of which we are the independent auditors. For the other entities included in the consolidated annual financial results, which has been audited by other auditors, such other auditors remain responsible for the direction, supervision and performance of the audit carried out by them. We remain solely responsible for our audit opinion. Our responsibilities in this regard are further described in sub paragraph no. 'a' of the Other Matters paragraph in this audit report. | We communicate with those charged with governance of the Holding Company and such other entities included in the consolidated annual financial results of which we are the independent auditors regarding, among other matters, the planned scope and timing of the audit and significant audit findings, including any significant deficiencies in internal control that we identify during our audit. | We also provide those charged with governance with a statement that we have complied with relevant ethical requirements regarding independence, and to communicate with them all relationships and other matters that may reasonably be thought to bear on our independence, and where applicable, related safeguards. | We also performed procedures in accordance with the circular No CIR/CFD/CMD1/44/2019 issued by the Securities and Exchange Board of India under Regulation 33(8) of the Listing Regulations, to the extent applicable. | Other Matters | a. The consolidated annual financial results include the audited financial results of ten subsidiaries, whose financial statements reflects total assets (before consolidation adjustments) of Rs. 16,218.74 million as at 31 March 2026, total revenue (before consolidation adjustments) of Rs. 3,104.93 million and total net profit after tax (before consolidation adjustments) of Rs. 216.55 million and net cash inflows (before consolidation adjustments) of Rs 66.77 million for the year ended on that date, as considered in the consolidated annual financial results, which have been audited by their respective independent auditors. The consolidated annual financial results also include the Group's share of total net loss after tax of Rs. 24.71 million for the year ended 31 March 2026, as considered in the consolidated annual financial results, in respect of an associate, whose financial statements has been audited by their respective independent auditors. The independent auditor’s reports on financial statements of these entities has been furnished to us by the management. | Our opinion on the consolidated annual financial results, in so far as it relates to the amounts and disclosures included in respect of these entities, is based solely on the reports of such auditors and the procedures performed by us are as stated in paragraph above. | Our opinion on the consolidated annual financial results is not modified in respect of the above matters | Page 3 of 5\n[Slide 6] B S R & Co. LLP | Independent Auditor’s Report (Continued) | Billionbrains Garage Ventures Limited (formerly known as Billionbrains Garage Ventures Private Limited) | with respect to our reliance on the work done and the reports of the other auditors. | b. The consolidated annual financial results include the results for the quarter ended 31 March 2026 being the balancing figure between the audited figures in respect of the full financial year and the published unaudited year to date figures up to the third quarter of the current financial year which were subject to limited review by us. | For B S R & Co. LLP | Chartered Acco", "Kotak": "[Slide 1] kotak logo | Abstract red circular graphic with infinity-like gold line | Transforming for scale | Investor Presentation Q1FY26 | Presentation on financial results for the Period ended 30ᵗʰ June, 2025 | 26ᵗʰ July, 2025\n[Slide 2] Kotak Mahindra Bank logo | Key Updates for Q1FY26 graphic | Key Updates | for Q1FY26 | Consolidated icon | Consolidated | * **PAT:** ₹ 4,472 cr\n* **ROE:** 11.13%\n* **ROA:** 2.03%\n* **Book value per share:** ₹ 829, Up 17% YoY\n* **Group AUM:** ₹ 750,143 cr, Up 18% YoY | Bank icon | Bank | * **PAT:** ₹ 3,282 cr\n* **NIM:** 4.65%\n* **CASA Ratio:** 40.9%\n* **Avg Advances\\*:** Up 14% YoY\n* **Avg Deposits:** Up 13% YoY\n* **NNPA:** 0.34% | Subsidiaries icon | Subsidiaries | * **Kotak AMC and TC:** PAT Up 86% YoY, Equity QAAUM: Up 24% YoY\n* **Kotak Mahindra Prime:** PAT: Up 17% YoY, Advances: Up 16% YoY | \\*Advances (incl. IBPC & BRDS)\n\n26 2\n[Slide 3] Kotak’s predominance in its businesses Kotak logo | Bank’s milestones | Bank icon #4 Private Sector Bank in India<sup>#</sup> | Market cap icon ₹ 4.30 trnMarket Cap as on 30<sup>th</sup> June, 2025 | Financier icon Amongst the leading Financier for Tractors, CV & CEamongst banks in India | Private banking icon Kotak Private - One of the leading Private BankersManages wealth for 60%<sup>**</sup> of India’s top 100 families | Subsidiaries highlights | Capital markets icon Kotak Mahindra Capital - Ranked #1* in the Equity Capital Markets category for the 3<sup>rd</sup> consecutive year | Securities icon Kotak Securities – Strong Retail & Institutional Broking BusinessOverall market share of 12.8% in Q1FY26<sup>^^</sup> | Institutional broking icon Institutional Broking – a top tier broker for global & domestic institutional investors; works in collaboration with Kotak Mahindra Capital (Investment Banking) for end-to-end ECM solutions | AMC icon Kotak AMC – 5<sup>th</sup> Largest Fund House in the CountryQAAUM as on 30<sup>th</sup> Jun, 2025 | Alternate asset icon Kotak Alternate Asset Managers<sup>##</sup> amongst the top Alternate Asset Managers in India | Customer reach | Customer icon 5.4 crBank Customers | Branches icon 5,440 Total Group Branches in India<sup>^&</sup> 2,154 Bank Branches<sup>^</sup> | ATM icon 2,927 ATM<sup>$</sup> | AUM icon ₹ 750,143 crGroup AUM | AAA rating seal Rating for Bank, Kotak Mahindra Prime, Kotak Mahindra Investments, Kotak Infrastructure Development Fund, Kotak Securities, Kotak Mahindra Life Insurance, Kotak Alternate Asset Managers<sup>#</sup> | <sup>#</sup>Balance Sheet size as at 31<sup>st</sup> March, 2025 | \\*Source: Bloomberg League Table. Ranked by deal volume and market share in India | <sup>^^</sup>excluding Proprietary Segments | <sup>\\*\\*</sup>Derived from Forbes India Rich List 2024 | <sup>##</sup>formerly known as Kotak Investment Advisors Ltd | <sup>^</sup>In addition, Bank branches are present in DIFC (Dubai) & GIFT City (Gujarat) | <sup>&</sup>Kotak Securities network includes branches, franchises and referral co-ordinators | <sup>$</sup>including cash recyclers\n\n3\n[Slide 4] Consolidated Highlights | kotak logo | Q1FY26 | Q1FY25 | Q1FY25 (excl. gain on KGI<sup>#</sup> divestment) | PAT icon | PAT | ₹ 4,472 cr <mark>1%</mark> up arrow | ₹ 7,448 cr | ₹ 4,435 cr | ROA icon | ROA | 2.03% | 3.87% | 2.30% | ROE icon | ROE | 11.13%<sup>@</sup> | 22.04% | 13.12%<sup>^</sup> | As at Jun'25 | As at Jun'24 | Customer Assets icon | Customer Assets* | ₹ 557,369 cr <mark>13%</mark> up arrow | ₹ 494,105 cr | CAR CET-I icon | | CAR   | CET - I |\n| ----- | ------- |\n| 23.7% | 22.7%   |\n| 22.8% | 21.9%   | | Book Value/Share icon | Book Value/Share | ₹ 829 <mark>17%</mark> up arrow | ₹ 710 | CAR and CET-I -as per Basel III, including unaudited profits | * Customer Assets comprise Advances (incl. IBPC & BRDS) and Credit Substitutes | # Represents Zurich Kotak General Insurance Company (India) Limited – \"ZKGI\" (Previously known as Kotak Mahindra General Insurance Company Limited) | ^ Q1FY25 ROE: 13.44% after adjusting networth for impact of RBI's Master Direction on Bank's investment valuation and KGI divestment | @ Q1FY26 ROE: 11.55% after excluding AFS Reserve | 4\n[Slide 5] Kotak Group PAT – Q1FY26 kotak logo | | ₹ cr                                      | Q1FY26    | Q1FY25    | Q4FY25    | YoY      |\n| ----------------------------------------- | --------- | --------- | --------- | -------- |\n| Kotak Mahindra Bank                       | 3,282     | 3,520     | 3,552     | (7%)     |\n| Kotak Mahindra Prime                      | 272       | 232       | 297       | 17%      |\n| Kotak Mahindra Investments                | 107       | 138       | 116       | (22%)    |\n| Kotak Infrastructure Debt Fund            | 14        | 11        | 13        | 28%      |\n| BSS Microfinance                          | (23)      | 50        | (91)      | -        |\n| Sonata Finance                            | 6         | (13)      | (4)       | -        |\n| **Bank & Other lending related entities** | **3,658** | **3,938** | **3,883** | **(7%)** |\n| Kotak Securities                          | 465       | 400       | 348       | 16%      |\n| Kotak Mahindra Capital                    | 89        | 81        | 96        | 10%      |\n| **Capital Market**                        | **554**   | **481**   | **444**   | **15%**  |\n| Kotak Mahindra Life Insurance             | 327       | 174       | 73        | 88%      |\n| Zurich Kotak General Insurance\\\\\\*        | -         | (21)\\\\\\*  | -         | -        |\n| **Insurance**                             | **327**   | **153**   | **73**    | **-**    |\n| Kotak AMC and TC                          | 326       | 175       | 364       | 86%      |\n| Kotak Alternate Asset Managers            | 59        | 6         | 101       | -        |\n| International Subs                        | 42        | 68        | 64        | (40%)    |\n| **Asset Management**                      | **427**   | **249**   | **529**   | **71%**  |\n| Others                                    | 1         | 1         | 5         | -        |\n| **Bank & Subsidiaries**                   | **4,967** | **4,822** | **4,934** | **3%**   |\n| Associates                                | 43        | 49\\\\\\*    | 24        | (12%)    |\n| Inter co. Adjustments                     | (538)     | (436)     | (25)      | -        |\n| **Consolidated PAT**                      | **4,472** | **4,435** | **4,933** | **1%**   |\n| PAT on KGI divestment                     | -         | 3,013     | -         | -        |\n| **Total PAT**                             | **4,472** | **7,448** | **4,933** | **-**    | | PAT of subsidiaries and associates (excl. insurance) entities includes gains of ₹ 204 cr in Q1FY26 and ₹ 411 cr in Q4FY25 due to alignment with RBI directions on valuation of investments portfolio w.e.f. Q4FY25. | PAT Contribution | | Entity                                | Q1FY26 (%) | Q1FY25^ (%) |\n| ------------------------------------- | ---------- | ----------- |\n| Bank & Other Lending Related Entities | 74         | 82          |\n| Capital Market                        | 9          | 5           |\n| Insurance                             | 6          | 3           |\n| Assets Mgmt & Others                  | 11         | 10          | | ^Excluding gain on KGI divestment | *On 18ᵗʰ June, 2024, ZKGI has ceased to be a wholly-owned subsidiary and became an associate of the Bank. Share of profits from 18ᵗʰ June, 2024 are included under Associates. | 5\n[Slide 6] Kotak Group Networth & ROE kotak logo | | ₹ cr                                      | PAT Q1FY26 | Networth Jun’25 | ROE           | CET-I |\n| ----------------------------------------- | ---------- | --------------- | ------------- | ----- |\n| Kotak Mahindra Bank                       | 3,282      | 123,428         |               | 21.8% |\n| Kotak Mahindra Prime                      | 272        | 10,453          |               | 23.0% |\n| Kotak Mahindra Investments                | 107        | 3,947           |               | 37.4% |\n| Kotak Infrastructure Debt Fund            | 14         | 587             |               | 44.8% |\n| BSS Microfinance                          | (23)       | 913             |               |       |\n| Sonata Finance                            | 6          | 409             |               |       |\n| **Bank & Other lending related entities** | **3,658**  | **139,738**     | **10.8%**     |       |\n| Kotak Securities                          | 465        | 10,423          |               |       |\n| Kotak Mahindra Capital                    | 89         | 1,656           |               |       |\n| **Capital Market**                        | **554**    | **12,078**      | **18.7%**     |       |\n| Kotak Mahindra Life Insurance             | 327        | 6,437           |               |       |\n| **Insurance**                             | **327**    | **6,437**       | **20.4%**     |       |\n| Kotak AMC and TC                          | 326        | 3,935           |               |       |\n| Kotak Alternate Asset Managers            | 59         | 1,247           |               |       |\n| International Subs                        | 42         | 2,334           |               |       |\n| **Asset Management**                      | **427**    | **7,516**       | **23.3%**     |       |\n| Others                                    | 1          | 108             | 5.1%          |       |\n| **Bank & Subsidiaries**                   | **4,967**  | **165,877**     |               |       |\n| Associates                                | 43         | 1,811           |               |       |\n| Inter co. Adjustments                     | (538)      | (2,785)         |               |       |\n| **Consolidated PAT**                      | **4,472**  | **164,903**     | **11.1%\\\\**\\* |       | | Networth Contribution\nJun'25 | | Category                              | Contribution (%) |\n| ------------------------------------- | ---------------- |\n| Bank & Other Lending Related Entities | 84               |\n| Capital Market                        | 5                |\n| Insurance                             | 4                |\n| Assets Mgmt & Others                  | 7                | | phone icon *ROE- Q1FY26: 11.55% (after excluding AFS Reserve) | PAT of subsidiaries and associates (excl insurance) entities includes gains of ₹ 204 cr in Q1FY26 due to alignment with RBI directions on valuation of investments portfolio w.e.f. Q4FY25. | 6\n[Slide 7] Bank Highlights | Kotak logo | PAT icon | NIM icon | Cost / Income icon | ROA icon | PAT | NIM | Cost / Income | ROA | | Q1FY26                              | 4.65% |        |       |\n| ----------------------------------- | ----- | ------ | ----- |\n| ₹ 3,282 cr -7%                      |       | 46.19% | 1.94% |\n| Q1FY25 ₹6,250 cr FY24               | 5.02% | 34.10% | 4.22% |\n| Q1FY25 (excl. gain on KGI ₹3,520 cr | 5.02% | 46.23% | 2.38% |\n| divestment)                         |       |        |       | | As at Jun'25 | Customer Assets icon | Net NPA icon | CASA Ratio icon | CAR / CET-I icon | CAR / CET-I icon | Customer Assets* | Net NPA | CASA Ratio | CAR CET-I | As at Jun'25 | ₹ 492,972 cr 13% increase | 0.34% | 40.9% | 23.0% 21.8% | As at Jun'24 | ₹ 435,827 cr | 0.35% | 43.4% | 22.4% 21.3% | CAR and CET-I -as per Basel III, including unaudited profits\n\\*Customer Assets comprise Advances (incl. IBPC & BRDS) and Credit Substitutes\n7\n[Slide 8] Bank's Profit and Loss Account – Q1FY26 kotak logo | | ₹ cr                             | Q1FY26     | Q1FY25     | Q4FY25     | YoY      | FY25       |\n| -------------------------------- | ---------- | ---------- | ---------- | -------- | ---------- |\n| Net Interest Income              | 7,259      | 6,842      | 7,284      | 6%       | 28,342     |\n| Other Income                     | 3,080      | 2,929      | 3,182      | 5%       | 11,418     |\n| *Fee and Services*               | 2,249      | 2,240      | 2,616      | -        | 9,530      |\n| \\*Trading and MTM income\\\\\\*\\*   | 195        | 105        | 23         | 86%      | 253        |\n| *Others*                         | 636        | 584        | 543        | 9%       | 1,635      |\n| **Net Total Income**             | **10,339** | **9,771**  | **10,466** | **6%**   | **39,760** |\n| Employee Cost                    | 2,065      | 1,870      | 2,106      | 10%      | 7,881      |\n| Other Operating Expenses         | 2,710      | 2,647      | 2,888      | 2%       | 10,873     |\n| **Operating Expenditure**        | **4,775**  | **4,517**  | **4,994**  | **6%**   | **18,754** |\n| **Operating Profit**             | **5,564**  | **5,254**  | **5,472**  | **6%**   | **21,006** |\n| Prov. on Adv/Receivables (net)   | 1,200      | 578        | 806        | 107%     | 2,848      |\n| Prov. on AIF / other Investments | 8          | -          | 103        | -        | 94         |\n| **Provision & Contingencies**    | **1,208**  | **578**    | **909**    | **109%** | **2,942**  |\n| **PBT**                          | **4,356**  | **4,676**  | **4,563**  | **(7%)** | **18,064** |\n| Provision For Tax                | 1,074      | 1,156      | 1,011      | **(7%)** | 4,344      |\n| **PAT**                          | **3,282**  | **3,520**  | **3,552**  | **(7%)** | **13,720** |\n| **ROE**                          | **10.94%** | **13.91%** | **12.42%** | **-**    | **12.57%** |\n| **Adjusted ROE^**                | **11.49%** | **14.14%** | **12.97%** | **-**    | **13.00%** |\n| PAT on KGI divestment            | -          | 2,730      | -          | -        | 2,730      |\n| **Total PAT**                    | **3,282**  | **6,250**  | **3,552**  | **-**    | **16,450** | | Notes | Rupee symbol icon Q4FY25 includes provision on AIF investment of ₹ 56 cr, interest on income tax refunds: ₹ 24 cr & tax credits: ₹ 110 cr\nPAT after excluding above items: ₹ 3,466 cr | Fees & services | | ₹ cr                 | Q1FY26    | Q1FY25    | Q4FY25    | FY25      |\n| -------------------- | --------- | --------- | --------- | --------- |\n| Distribution         | 344       | 309       | 713       | 1,782     |\n| General Banking Fees | 1,808     | 1,785     | 1,786     | 7,284     |\n| Others               | 97        | 146       | 117       | 464       |\n| **Total**            | **2,249** | **2,240** | **2,616** | **9,530** | | *On fixed income, net of OIS/FRA | ^after excluding AFS reserve | 8\n[Slide 9] Balance Sheet | kotak logo | ₹ cr | | Capital & Reserves and Surplus Cash, Bank and Call    | 123,428 | 106,308 | 117,146 | 43,080  | 37,161  | 65,779  |\n| ----------------------------------------------------- | ------- | ------- | ------- | ------- | ------- | ------- |\n| Deposits                                              | 512,838 | 447,418 | 499,055 |         |         |         |\n| Investments                                           |         |         |         | 182,292 | 162,578 | 181,907 |\n| of which, CASA                                        | 209,645 | 194,222 | 214,416 |         |         |         |\n| Net Advances                                          |         |         |         | 444,823 | 389,957 | 426,909 |\n| Borrowings                                            | 21,148  | 29,402  | 48,443  |         |         |         |\n| Other Liabilities and Provisions Fixed & Other Assets | 31,595  | 21,820  | 28,980  | 18,814  | 15,252  | 19,029  |\n| Total Liabilities Total Assets                        | 689,009 | 604,948 | 693,624 | 689,009 | 604,948 | 693,624 |\n| CASA Ratio CD Ratio                                   | 40.9%   | 43.4%   | 43.0%   | 86.7%   | 87.2%   | 85.5%   |\n|                                                       |         |         |         |         |         | 9       | | 30-Jun-25 | 30-Jun-24 | 31-Mar-25 | | ₹ cr | 30-Jun-25 | 30-Jun-24 | 31-Mar-25 |\n| ---- | --------- | --------- | --------- |\n|      |           |           |           | | 1\n[Slide 10] Deposits | CASA (EOP) (₹ cr) | | Period | Floating rate SA | Fixed rate SA | CA     | CASA % |\n| ------ | ---------------- | ------------- | ------ | ------ |\n| Jun-25 | 13,288           | 114,657       | 81,700 | 40.9%  |\n| Jun-24 | 18,730           | 105,348       | 70,144 | 43.4%  |\n| Mar-25 | 19,606           | 111,949       | 82,861 | 43.0%  | | | Averages        | Q1FY26  | YoY % | Q1FY25  |\n| --------------- | ------- | ----- | ------- |\n| Total Deposits  | 491,998 | 13%   | 435,603 |\n| Current Account | 67,809  | 9%    | 62,200  |\n| Savings Account | 124,186 | 2%    | 122,105 |\n| Term Deposit    | 300,003 | 19%   | 251,298 | | Term Deposits (EOP) (₹ cr) | | Period | TD Sweep | Other Term Deposits |\n| ------ | -------- | ------------------- |\n| Jun-25 | 59,098   | 244,094             |\n| Jun-24 | 48,179   | 205,018             |\n| Mar-25 | 55,626   | 229,013             | | | Metric         | Current (Jun' 25) | Previous (Jun' 24) |\n| -------------- | ----------------- | ------------------ |\n| Cost of Funds  | 5.01%             | 5.10%              |\n| Cost of SA     | 3.32%             | 4.12%              |\n| Customers (cr) | 5.4 cr            | 5.1 cr             | | Figures in grey are Jun' 24 numbers, as applicable | 10\n[Slide 11] Customer Assets | kotak logo | | ₹ cr                         | 30-Jun-25   | 30-Jun-24   | 31-Mar-25   | YoY     | QoQ    |\n| ---------------------------- | ----------- | ----------- | ----------- | ------- | ------ |\n| Home Loans & LAP             | 131,541     | 110,850     | 127,025     | 19%     | 4%     |\n| Business Banking Assets      | 44,469      | 37,591      | 42,797      | 18%     | 4%     |\n| PL, BL and Consumer Durables | 24,368      | 20,317      | 24,818      | 20%     | (2%)   |\n| Credit Cards                 | 12,924      | 14,644      | 13,420      | (12%)   | (4%)   |\n| Others                       | 3,150       | 2,413       | 3,012       | 31%     | 5%     |\n| **Consumer Banking**         | **216,452** | **185,815** | **211,07", "Motilal Oswal": "[Slide 1] Motilal Oswal logo | Investor Presentation Q4FY26 & FY26\nMotilal Oswal Financial Services Limited | Largest Integrated Capital Market Player* | Primed to Benefit From India’s Multi-Trillion Dollar Opportunities | \\* On the basis of FY25 Net Worth Ranking\n\n1\n\nwww.motilaloswalgroup.com\n[Slide 2] Motilal Oswal logo | Table Of Content | | Compounding Machine<br/>Pg 03 – 05             | MOFSL Value Proposition<br/>Pg 6 – 10 | Q4FY26 & FY26 Highlights<br/>Pg 11 – 46 |\n| ---------------------------------------------- | ------------------------------------- | --------------------------------------- |\n| Other (Tech, ESG, Philanthropy)<br/>Pg 47 – 51 |                                       |                                         | | Think Equity. Think Motilal Oswal.\n\n2\n\nwww.motilaloswalgroup.com\n[Slide 3] Our inspiration – Berkshire Hathaway | motilal oswal logo | | Since 1965           | S\\&P 500 return with dividends | Berkshire Hathaway share price return |\n| -------------------- | ------------------------------ | ------------------------------------- |\n| 59 years CAGR return | 10.4%                          | 19.9%                                 | | Net Worth in $Bn. | | Year | Net Worth ($Bn.) |\n| ---- | ---------------- |\n| 1965 | 0.025            |\n| 1972 | 0                |\n| 1982 | 1                |\n| 1992 | 9                |\n| 1993 | 11               |\n| 1994 | 12               |\n| 1995 | 17               |\n| 1996 | 24               |\n| 1997 | 32               |\n| 1998 | 59               |\n| 1999 | 59               |\n| 2000 | 63               |\n| 2001 | 59               |\n| 2002 | 65               |\n| 2003 | 78               |\n| 2004 | 87               |\n| 2005 | 92               |\n| 2006 | 111              |\n| 2007 | 123              |\n| 2008 | 114              |\n| 2009 | 136              |\n| 2010 | 163              |\n| 2011 | 169              |\n| 2012 | 192              |\n| 2013 | 224              |\n| 2014 | 243              |\n| 2015 | 259              |\n| 2016 | 285              |\n| 2017 | 352              |\n| 2018 | 353              |\n| 2019 | 429              |\n| 2020 | 451              |\n| 2021 | 515              |\n| 2022 | 481              |\n| 2023 | 568              |\n| 2024 | 652              |\n| 2025 | 720              | | * 19% CAGR | Think Equity. Think Motilal Oswal.\n3\nwww.motilaloswalgroup.com\nMain Content Slide Click Here\n[Slide 4] MOFSL's Power of Compounding | Demonstrated over ~4 Decades | Motilal Oswal logo | Net Worth Trend | <!-- layout: scratchpad\n1. This is a visual timeline showing the growth of net worth over time. It is semantically a table where each column represents a point in time with associated data.\n2. Side-by-side check: No, it's a single continuous timeline.\n2b. Vertical continuity: The timeline elements are visually grouped.\n3. Row sampling:\n   - Row 1: Year/Period\n   - Row 2: Net Worth Value\n   - Row 3: Key Milestones/Description\n4. Columns (11 total): 1987, 1990-95, 2006, 2007, 2010, 2014, 2018, 2024, 2025, FY26.\n5. Merge cell detection: None.\n6. Header structure: The years/periods act as headers.\n7. Column count verification: 11 columns.\n--> | | 1987                                                            | 1990-95                                 | 2006                                                                                                                    | 2007                                               | 2010                                                              | 2014                                                                                                             | 2018                                        | 2024                                                                                 | 2025                                                                                                                                | FY26                                                                                                                 |\n| --------------------------------------------------------------- | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |\n| ₹1 lac                                                          | ₹10 Cr                                  | ₹107 Cr                                                                                                                 | ₹333 Cr                                            | ₹946 Cr                                                           | ₹1,170 Cr                                                                                                        | ₹2,886 Cr                                   | ₹8,732 Cr                                                                            | ₹11,079 Cr                                                                                                                          | ₹12,888 Cr                                                                                                           |\n| Started as a Sub-Broking Outfit - Prudential Portfolio Services | Started Retail & Institutional Equities | Capital raised through Private Equity. Enters into Investment Banking, Private Equity, and Wealth Management businesses | Goes public. The IPO was oversubscribed 26.4 times | Asset Management Company launches its maiden mutual fund offering | Entered into Affordable Housing Finance Business and started deploying free cash flows into Treasury Investments | Crossed 1 mn customers in Wealth Management | Assets Under Advice (AUA) crossed ₹ 4 Tn mark<br/><br/>Employee count crossed 10,000 | Recorded the highest ever Operating PAT of ₹ 2,029 Cr<br/><br/>Total client base crossed 12 mn.\\*<br/><br/>AUA crossed ₹5+ tn. mark | Rating Upgrade to AA+ Stable by ICRA, first amongst Non-Bank Capital Market Player.<br/><br/>AUA crossed ₹6 Tn. Mark | | *Aggregated nos. of customers of each business | Think Equity. Think Motilal Oswal. | [www.motilaloswalgroup.com](http://www.motilaloswalgroup.com) | 4\n[Slide 5] MOFSL's Strong Decadal Compounding Journey | Motilal Oswal logo | Blue background with text highlights | Profit growth has been higher than revenue growth | MOFSL's market cap has outperformed the Nifty 500 Index by 14% CAGR | Assets under Advice have posted 30% CAGR in the last decade | | Category | Total Revenue (₹ Cr) |\n| -------- | -------------------- |\n| Mar-16   | 1,081                |\n| Mar-26   | 9,416                | | 24% CAGR\nTotal Revenue in ₹ Cr | | Category | Total PAT (incl OCI) (₹ Cr) |\n| -------- | --------------------------- |\n| Mar-16   | 169                         |\n| Mar-26   | 2,043                       | | 28% CAGR\nTotal PAT (incl OCI) in ₹ Cr\nTTM PAT Ranking 144<sup>#</sup> | | Category | Assets under Advice (AUA) (₹ Cr) |\n| -------- | -------------------------------- |\n| Mar-16   | 47,074                           |\n| Mar-26   | \\~6.6 lakh                       | | 30% CAGR\nAssets under Advice (AUA) in ₹ Cr | | Category | Net Worth (₹ Cr) |\n| -------- | ---------------- |\n| Mar-16   | 1,437            |\n| Mar-26   | 12,888           | | 25% CAGR\nNet Worth in ₹ Cr | | Category | MOFSL Market Cap (₹ Cr) |\n| -------- | ----------------------- |\n| Mar-16   | 3,885                   |\n| Mar-26   | 38,037                  | | 26% CAGR\nMOFSL Market Cap in ₹ Cr\nM-cap Rank 204* | | Category | Nifty 500 |\n| -------- | --------- |\n| Mar-16   | 6,437     |\n| Mar-26   | 20,528    | | 12% CAGR\nNifty 500 | \\*As on Apr 28, 2026. #TTM for period from Jan'25 to Dec'25\n# amongst listed entities\nThink Equity. Think Motilal Oswal.\n\n5\n\nwww.motilaloswalgroup.com\n[Slide 6] MOFSL's Twin-Engine model | Motilal Oswal logo | Large Treasury Book Drives Operating Businesses Growth | Diagram showing the relationship between Engine #1 (Operating Businesses) and Engine #2 (Treasury Investments) with a central circle containing \"Synergy + Liquidity + Stability\". Arrows indicate that investments are used strategically for operating businesses and operating profit post dividend payout is invested back into treasury. | Engine #1 | OPERATING BUSINESSES | * Leading player in multiple capital market businesses\n\n* Diversified revenue profile, ARR\\* contributed majority revenue share.\n\n* Each business is managed by professional CEOs | Engine #2 | TREASURY INVESTMENTS | * Investments providing synergy and stability\n\n* Large skin in the game\n\n* Highly liquid investments\n\n* Focus on healthy annual returns over long term | Click to visit slide of Treasury Investment | *ARR is \"Annuity Recurring Revenue\" | Think Equity. Think Motilal Oswal. | [www.motilaloswalgroup.com](http://www.motilaloswalgroup.com) | 6\n[Slide 7] Proven Record Of Superior Capital Allocation Strategy | Motilal Oswal logo | Treasury Investments Highly Beneficial For Long Term Growth, Without Diluting Equity Capital | graph TD\n    subgraph Left_Column [\" \"]\n        L_Header[\"<b>Proven Model – Berkshire Hathaway.</b>Many Advantages Of Large BalanceSheet In a High Growth Sector.\"]\n        L1[\"Strong buffer ascapital Intensity of thebusinesses is rising\"]\n        L2[\"Keep Financialleverage in control.\"]\n        L3[\"To tap adjacenciesin each of the existingbusinesses\"]\n        L4[\"Collateral support forgroup borrowings.\"]\n        L5[\"Absorbing shocks in anuncertain environment\"]\n        L6[\"Don’t have to raiseexternal capital.\"]\n        \n        L_Header --- L1\n        L_Header --- L2\n        L1 --- L3\n        L2 --- L4\n        L3 --- L5\n        L4 --- L6\n    end\n\n    subgraph Right_Column [\" \"]\n        R_Header[\"<b>Unmatched Record in Indian Markets.</b>Only Integrated Capital Market Playerwith ~4 Decade History\"]\n        R1[\"Op. PAT Growth of 33% inlast decade. No externalequity capital raisesince IPO in 2007.\"]\n        R2[\"Treasury Book CAGRof 40% since FY14.XIRR of 15.5% in thesame period.\"]\n        R3[\"Executed 3 buybacks.Annual Dividend Payoutof 20% every year.\"]\n        R4[\"Highest Credit Rating ofAA+ within the non-bankdomestic capitalmarket segment.\"]\n        R5[\"Twin Engine: Backboneof the group’s growthover the past decade\"]\n        R6[\"Prudent capital allocationto foster new opportunitiesand grow existingbusinesses\"]\n        \n        R_Header --- R1\n        R_Header --- R2\n        R1 --- R3\n        R2 --- R4\n        R3 --- R5\n        R4 --- R6\n    end | Think Equity. Think Motilal Oswal.\n\n7\n\nwww.motilaloswalgroup.com\n[Slide 8] Comprehensive Solutions Across Client Categories | Motilal Oswal logo | Servicing All Client Segments | 95%+ Pin-code coverage in India. | 6.6+ Lakh Cr Group Asset Under Advice. | ~1,550 RMs 100+ Research Team. | * Mass Affluent Customers\n* Affluent Customers\n* HNI\n* UHNI\n* Family Offices/Promoters\n* Corporates\n* Investment Funds | Clients:\nAMC Folios 10.0+ Mn.\nBroking 5.5+ Mn. | Investment Banking | * Equity Capital Markets\n* M&A Advisory\n* IPOs & QIPs | Asset Management | * Mutual Funds\n* ETFs & Index Strategies\n* Public Markets PMS/AIF\n* Global Feeder Funds | Alternates | * Private Equity\n* Real Estate\n* Private Credit | Motilal Oswal Investment Banking logo | Motilal Oswal Asset Management logo | Motilal Oswal Alternates logo | Motilal Oswal Wealth Management logo | Motilal Oswal Financial Services logo | Motilal Oswal Private Wealth logo | Motilal Oswal Foundation logo | Wealth Management | * Advisory led Broking\n* Managed F&O solutions\n* Commodity solutions\n* MTF, LAS\n* Leveraged Financial Products | Institutional Equities | * Equity Research\n* Institutional Client Derivative Strategies\n* Block Deals | Private Wealth | * Multi-asset Solutions\n* Alternate assets\n* Credit solutions\n* Treasury solutions\n* Co-investments\n* Tax & Estate Planning | Foundation | * Co-investment opportunities in philanthropic initiatives in some of the high impact educational and healthcare causes | Think Equity. Think Motilal Oswal.\n\n8\n\nwww.motilaloswalgroup.com\n[Slide 9] Financialisation of India | Huge Runway of Growth For MOFSL | Motilal Oswal logo | 30th Wealth Creation Study by Raamdeo Agrawal: India - The Multi-Trillion Dollar Opportunity | \"Compounding economy, compounding stocks\" | Our latest Wealth Creation Study highlights Multi-Trillion Dollar Opportunity in India. \"\"Wealth Effect\" will drive capital market players growth | Click here for Full Report | Savings in Equities | | Country | Percentage |\n| ------- | ---------- |\n| India   | 5%         |\n| US      | 40%        | | Mutual Funds AUM / GDP | | Country | Percentage |\n| ------- | ---------- |\n| India   | 20%        |\n| US      | 120%       | | Retail Participation (Owns Stocks) | | Country | Percentage |\n| ------- | ---------- |\n| India   | 10%        |\n| US      | 55%        | | GDP Real Growth CAGR (Expected)* | | Country | Percentage Range |\n| ------- | ---------------- |\n| India   | 7%-10%           |\n| US      | 4%-6%            | | Market Cap CAGR (Expected)* | | Country | Percentage Range |\n| ------- | ---------------- |\n| India   | 10%-15%          |\n| US      | 6%-10%           | | Market Cap / GDP (x) | | Country | Percentage |\n| ------- | ---------- |\n| India   | 120%       |\n| US      | 190%       | | *Market Cap CAGR is assumed to be 1.5x of Nominal GDP growth over long term | Source – wealth creation study | Think Equity. Think Motilal Oswal.\n9\nwww.motilaloswalgroup.com\n[Slide 10] Future Is More Exciting | motilal oswal logo | Business Segments have huge headroom to gain market share | AMC (MF, PMS & AIF) | * Growth style focused AMC\n\n* Higher Flow Market Share vs AUM\n\n* Expanded Fund Management Team\n\n* Expanded Product Offerings | MO Alternates (PE, RE & Private Credit) | * Top performing Alternate AMC\n\n* Expanding segments with Private Credit entry. To enter Commercial Real Estate in FY27\n\n* Target to grow AUM multi-fold over next-decade | Private Wealth Management | * Top Tier PWM with $20bn AUM\n\n* Increasing RM base in HNI/UHNI\n\n* Expanding curated solutions to clients\n\n* Increasing ARR Revenue and Improving market share | Wealth Management | * Differentiated proposition to clients as advisory led full service broking player\n\n* Increasing MTF book market share\n\n* Distribution penetration improving\n\n* AI Empowered Client experience and Improved productivity | Capital Market (IE & IB) | * Offering full suite of Investment Banking products\n\n* Strong IB mandates pipeline\n\n* Amongst largest research Team\n\n* Covering 360+ stocks & increasing | Treasury Investments | * Solid balance-sheet base to grow operating businesses\n\n* Buffer as regulation changes demand higher capital for operating businesses.\n\n* Earned 15.5% XIRR over past decade\n\n* Lowers external equity fund raise | An Integrated Capital Market Player | * Leaders in High Growth businesses, operating leverage will drive profit growth.\n\n* Focus is to improve market share in all the businesses\n\n* Continue to deliver minimum ROE of 20%+ in operating business with payout of 20%\n\n* Growing Treasury Book from current $1bn to multi-billion dollar in next decade | Think Equity. Think Motilal Oswal.\n\n10\n\nwww.motilaloswalgroup.com\n[Slide 11] FY26 – Continued Strength In Operating Earnings Growth | motilal oswal logo | | Ranking<br/>Market capitalization | Ranking<br/>PAT Ranking¹    | Ranking<br/>M-cap Rank |\n| --------------------------------- | --------------------------- | ---------------------- |\n| ₹ 47,190 Crs\\*                    | 144 amongst listed entities | 204\\*                  | | ¹ TTM for period from Jan'25 to Dec'25 | *As on Apr 28,2026 | FY26 Operating & Financial Snapshot | | Metric                          | YoY Growth | Value           |\n| ------------------------------- | ---------- | --------------- |\n| Assets under advice             | 21% YoY    | ₹ 6.6+ lakh cr. |\n| Net Operating Revenue           | 14% YoY    | ₹ 5,908 cr.     |\n| Operating PAT                   | 16% YoY    | ₹ 2,360 cr.     |\n| Treasury Investments            | 17% YoY    | ₹ 8,797 cr.     |\n| Net Worth                       | 16% YoY    | ₹ 12,888 cr.    |\n| Lending book\\*                  | 41% YoY    | ₹ 10,900+ cr.   |\n| Operating ROE                   |            | 24%             |\n| ARR Contribution in Net Revenue |            | \\~60%           |\n| Total Clients                   | 21% YoY    | 15.5+ mn.       |\n| Employees                       |            | \\~12,500        | | *ex-HFC | Think Equity. Think Motilal Oswal. | 11 | [www.motilaloswalgroup.com](http://www.motilaloswalgroup.com)\n[Slide 12] Motilal Oswal logo | Focus on Sustainable and Fee Based Revenues | Share of Fees Based Revenues increased to ~42% and ARR increased to ~60% | | Revenue stream wise break-up       | FY26  | FY25  | FY24  | FY23  | FY22  | FY21  |\n| ---------------------------------- | ----- | ----- | ----- | ----- | ----- | ----- |\n| Management & Advisory Fees         | 26%   | 21%   | 19%   | 18%   | 19%   | 20%   |\n| Distribution Fees                  | 16%   | 15%   | 11%   | 11%   | 11%   | 11%   |\n| Net Interest Income                | 31%   | 31%   | 31%   | 32%   | 29%   | 27%   |\n| Borkerage Revenues                 | 23%   | 28%   | 34%   | 34%   | 36%   | 37%   |\n| Other Operating Revenues           | 4%    | 4%    | 4%    | 4%    | 5%    | 4%    |\n| Total Operating Net Revenue (₹ Cr) | 5,908 | 5,178 | 3,943 | 2,947 | 2,623 | 1,940 |\n| Share of ARR in Total Revenue ", "Choice": "[Slide 1] Choice The Joy of Earning logo | “Choice International Limited | Q4 & FY26 Earnings Conference Call” | April 24, 2026 | Choice The Joy of Earning logo | ADFACTORS PR Reputation & Critical Issues Advisory logo | MANAGEMENT: MR. ARUN PODDAR – GROUP CHIEF EXECUTIVE OFFICER – CIL\nMR. AJAY KEJRIWAL – EXECUTIVE DIRECTOR – CIL\nMR. AYUSH SHARMA – HEAD OF INVESTOR RELATIONS – CIL | MODERATOR: MS. FORUM GOSHER – ADFACTORS PR INVESTOR RELATIONS | Page 1 of 12\n[Slide 2] Choice The Joy of Earning logo *Choice International Limited*\n*April 24, 2026* | Moderator: Ladies and gentlemen, good day and welcome to the Q4 & FY26 Earnings Conference Call hosted by Choice International Limited. As a reminder, all participant lines will be in the listen-only mode and there will be an opportunity for you to ask questions after the presentation concludes. Should you need assistance during this conference call, please signal an operator by pressing star then zero on your touchtone phone. Please note that this conference is being recorded. | I now hand over the conference to Ms. Forum Gosher from Adfactors PR, Investor Relations. Thank you and over to you, Ms. Forum. | Forum Gosher: Good evening, everyone. On behalf of Choice International Limited, I welcome you all to the earnings conference call for Q4 & FY26. Joining us today from the management team are Mr. Arun Poddar, Group CEO; Mr. Ajay Kejriwal, Executive Director; and Mr. Ayush Sharma, Head of Investor Relations. | The earnings presentation has been uploaded on the exchanges as well as on the company website. You may refer to it as we walk you through the opening remarks and the discussions during the call. | Before we begin, I would like to remind you that certain statements made during this call may be forward-looking in nature and are subject to risks and uncertainties. These are detailed in the company's Annual Report and other Investor disclosures available on the website. Choice International Limited does not undertake any obligation to publicly update these forward-looking statements. | With that, I will now hand over the call to Mr. Arun Poddar to share his opening remarks. Thank you and over to you, sir. | Arun Poddar: Good evening, everyone and thank you for joining us today. In FY26, India maintained steady progress backed by a stable policy environment and consistent execution. There is a growing confidence across sectors driven not just by expectation but by the change already visible on the ground. Continued investment by global players across industries such as technology, manufacturing, service, energy, and logistics reflect that long-term commitment to India's growth story. | In this context, our performance in Q4 FY26 reflects stable progress for Choice with continued momentum across our institutional, distribution, and product-led business. Our focus during the quarter remained on strengthening our platform, expanding our reach, and building partnerships while also growing our presence in areas such as public sector advisory. | During the quarter, our consulting subsidiary secured government mandates aggregating approximately Rs. 55 Cr. These mandates span program management, governance reform, and digital transformation indicating our growing presence in public sector advisory space. | Page 2 of 12\n[Slide 3] Choice The Joy of Earning logo *Choice International Limited*\n*April 24, 2026* | In wealth management, we secured a digital investment platform mandate from India Post Payments Bank. This provides access to a large distribution network and support our effort to scale this business. In asset management, we expanded our offering with the launch of the Choice Nifty 50 Index Fund and Choice Nifty Next 50 Index Fund in line with our focus on long-term investing solutions. | Our business performance this quarter reflected a deliberate emphasis on building strength within each vertical rather than pushing broad-based expansion. In broking and distribution, our focus continued to be on the cash delivery segment. This has helped maintain margins and build a more stable clientele base. The segment contributed 59% to total revenue with stockbroking AUM at Rs. 52,482 Cr in Q4 FY26, growing 28% YoY. Wealth AUM stood at Rs. 4,268 Cr supported by steady client participation in delivery-led products. | Our network with 67,000 Choice Business Associates remains an important part of our distribution strategy. This model allows us to combine digital capabilities with on-ground presence, helping us expand our reach while maintaining client engagement. | During the quarter, our Demat account base grew to 13 lakhs, up 16% YoY, supported by improved onboarding and a wider product offering. In the insurance business, we saw consistent growth driven by a broader partner network and increased use of digital platforms. Premium collection stood at Rs. 84 Cr in Q4 FY26, reflecting 14% YoY growth, while policy volumes stood at 50,887 number of policies. | In our NBFC segment, we continue to focus on secured lending given the current environment in unsecured lending. Our emphasis on MSME, micro-LAP, rooftop solar financing support more stable growth. The loan book stood at Rs. 800 Cr as of FY26 with the segment contributing 13% to total revenue. Our in-house collection process continues to support asset quality with NNPA remaining stable at 1.86% as of March 31, 2026. | The advisory business continues to benefit our ongoing infrastructure and governance-related projects with an order book of Rs. 698 Cr. We are working on projects such as digital PACS, and multilateral support initiatives. This segment contributed 28% to total revenue and provides visibility over the next two to three years. | Let me pass it on to Ayush Sharma, our Head of Investor Relations, who will present the quarter's financial performance. Thank you. | Ayush Sharma: Thank you, sir. I will now walk you through our financial performance for Q4 & FY26. During the quarter, Choice reported consolidated revenue of Rs. 314 Cr, representing a growth of 23% on a YoY basis. EBITDA for the quarter stood at Rs. 123 Cr with margins at 39.08% reflecting improved operating efficiency. Profit after tax came in at Rs. 68 Cr translating into a margin of 21.62% and a YoY growth of 27%. | For the full year FY26, consolidated revenue was at Rs. 1,145 Cr, up 24% compared to last year. EBITDA stood at Rs. 425 Cr with margins at 37%, while PAT was Rs. 238 Cr reflecting a | Page 3 of 12\n[Slide 4] Choice The Joy of Earning logo\n\n*Choice International Limited*\n\n*April 24, 2026* | growth of 46% on a year-on-year basis. Overall, the performance reflects steady execution across businesses and continued strength in our operating model. | Looking at segment performance, the broking and distribution business reported revenue of Rs. 179 Cr in Q4 FY26 with a PBT of Rs. 55 Cr. Our Demat account base has grown to 12.63 lakhs, while we are seeing increased engagement per client supported by cross-selling of insurance and wealth products through the FinX platform. | The NBFC segment recorded revenue of Rs. 43 Cr and PBT of Rs. 2 Cr during the quarter. Asset quality remains stable with GNPA at 2.74% and NNPA at 1.86%. This has been supported by disciplined underwriting, improved collections, and a diversified loan book. Net interest margins remained healthy at 11.22% in line with our focus on secured lending. | In the advisory segment, Q4 FY26 revenue stood at Rs. 91 crores with a PBT of Rs. 31 Cr. For FY26, the segment reported revenue of Rs. 330 Cr and a PBT of Rs. 120 Cr. Performance during the period was supported by steady execution and continued inflow of mandates including repeat engagements. | With this, I would now like to open the floor for any questions. | Moderator: Thank you. We will now begin the Q&A session. The first question is from the line of Urmish Shah from Moneywisers. Thank you and over to you. | Urmish Shah: Thank you for the opportunity. My first question is on the wealth product AUM; we witnessed a 23% decline. Could you give some color on that? | Ayush Sharma: Sure. If you see, there is a decline in overall AUM, however, there is a growth of 35% in the equity MF AUM. The decline is largely driven by redemptions in the debt mutual funds, which is natural because of the market sentiment wherein people withdraw their excess capital deployed in debt and tend to invest in equities at a better price. So, that's the larger reason which is driving the reduction in the debt AUM. The margins in equity is higher for the company compared to debt mutual funds, therefore there is no larger impact on the overall revenue of the company. | Urmish Shah: As you were saying the reason, is this what we'll witness if the market conditions are not stabilized going further? Do you see that in the future? | Ayush Sharma: No, our focus product is also equity AUM. We will see a consistent growth in the equity mutual funds. So, that's largely a treasury product, that will not be our core focus product. Our core focus will be equity MF only. | Urmish Shah: On the NBFC, are we comfortable with our provision coverage ratio? In your opening comments, you did mention that NPAs are stable that way, but still, we see a 1 or 3 bps increase in the NPA. Could that be somewhat streamlined? | Page 4 of 12\n[Slide 5] Choice The Joy of Earning logo\n\nChoice International Limited\nApril 24, 2026 | Ayush Sharma: On the provision coverage ratio, it is driven by an established market practice of ECL, expected credit loss as per the accounting standards. We have adopted the accounting policy defined by the accounting standards and whatever is calculated by the policy of accounting standards, we are preparing the provisions. | On the asset quality side, you can see a growth in the overall YoY numbers. However, during the year there has been certain rise in the NPA numbers, which has come down in Q4 FY26. This rise was largely driven by the overall economic impacts which we had seen in the microfinance segment, but now things seem to be normalizing starting this quarter. | Urmish Shah: My next question is on the insurance side. We see a decline in the corporate side of the business, in which we had seen previously as well. So, is that segment in a bit of a doldrum? | Ayush Sharma: Overall, there has been a growth in the insurance premium and larger contribution has come from retail insurances rather than the corporate insurances. There has not been major impact on the revenues. However, there we had seen for last two quarters slight reduction in the corporate insurance premium. | During the last year, we had got insurance premium from certain government contracts. That was the larger reason why there was higher insurance premium in the previous financial year; when we compare that number to this year's number; you see a decline. However, the corporate insurance premium is for the corporates, it is as per our expected range only. | Urmish Shah: Lastly, on the mandate with Assam Industrial Green Growth Fund; as I see on your Slide 39, could you give some color on how will be the structure and how the things will proceed and whether FY27 is the year that we are looking forward to go up about it? | Ayush Sharma: The Government of Assam has mandated Choice Capital Advisors Private Limited to assist them in setting up the AIF and then doing the roadshows for the fundraising for the AIF as well. Our role is to assist the government, although the fund management etcetera will be done by the government themselves. | Urmish Shah: Okay. Thank you, sir. I'll join back. | Moderator: Thank you. The next question is from the line of Shweta Sharma from Arihant Capital. Thank you and go ahead. | Shweta Sharma: Thank you so much. The revenue grew in FY26, but PAT margin remains probably stable. What are the key levers you are targeting to expand net margin over the next 2-3 years? | Ayush Sharma: We have expansion in the net margins as well during this particular financial year. However, to expand the margins further, the larger use of tech is going to play a role as we achieve the higher scales. Our fixed costs are not going to increase. As seen in the Q4 performance, the revenues have grown by 23%, but the profit has grown by 46% for FY26. So, that higher growth than the | Page 5 of 12\n[Slide 6] *Choice International Limited*\n*April 24, 2026* | Choice The Joy of Earning logo | revenue in profit after tax shows the higher expansion in the margins. That will continue to expand as we leverage on the technology, and the fixed cost remains stable. | Shweta Sharma: Okay. Your acquisition of Optimo Investment Adviser and the IPPB partnership seems like a push into deeper Tier-2 and Tier-3 markets. What is the projected customer acquisition cost for these channels compared to your traditional digital channels? | Ayush Sharma: Traditionally we are largely focused on semi-urban geographies, Tier-2, Tier-3, Tier-4 geographies where we acquire customers. However, at the same time, the execution is completely digital and tech-driven, which is through our mobile app or through our web trading platform etcetera. But the acquisition is still physical, which is driven by branches, CBAs. | Coming to your question on the acquisition partnership with the IPPB, their existing customer base, we will be providing the services to their existing customer base; thereby making our customer acquisition negligible or at a very low levels because we will be earning revenues from the cross-sell which we do to their existing customer base. So, we don't see much of the customer acquisition cost increase while having a partnership with IPPB. | Shweta Sharma: Okay. As you scale the book, are you seeing any compression in yields specifically? What is the current GNPA and NNPA trend in newly acquired Paisabuddy retail lending portfolio? | Ayush Sharma: The acquired portfolio is also behaving in line with our portfolio. When we had acquired, we had done a comparative study and the study stated that both the portfolios of Choice and Paisabuddy are similar in nature in terms of customer segment and geographies. Therefore, the performance is also similar. We don't see a differentiated performance in the portfolio acquired from Paisabuddy. | Shweta Sharma: Okay. Are you seeing any compression in yields? | Ayush Sharma: Definitely, as we grow further and as we originate better credits, there is going to be a rate reduction. However, that will be a marginal, not a very significant impact in the compression of the NIM. But, at the same time, the impact will be seen in the asset quality also, thereby increasing our ROE only and not having any negative impact on the ROE. | Shweta Sharma: Okay. Lastly, which segments will be the primary growth engines going forward? | Ayush Sharma: All four segments are focused segments for us. There is nothing primary or nothing secondary. There is no segment which is of non-core focus. All these are growing and all these will continue to grow in future as well. We have dedicated CEOs for all the segments and all business verticals. The day-to-day execution and business decisions are taken care of by all of them. So, all of them will continue to grow and eventually, become a larger organization. | Moderator: The next question is from the line of Suraj Shinde from Yes Securities. Thank you and go ahead. | Suraj Shinde: Thank you for the opportunity. I have few questions. Firstly, as the base grows larger, what is your realistic medium-term growth guidance across revenue and profitability? | Page 6 of 12\n[Slide 7] Choice The Joy of Earning logo\n\nChoice International Limited\nApril 24, 2026 | Ayush Sharma: We have been constantly communicating as well as projecting internally to maintain a growth rate of around 30% on YoY basis across revenues and profitability. | Suraj Shinde: Okay. What are we doing to convert dormant demat holders into active traders and what is the target activation ratio over the next 12 months? | Ayush Sharma: When we talk about the dormant demat holders, there are different types of customers which we segregate internally. These are classified into investors, traders and somewhat followers. So, these are the three categories which we classify in and accordingly for each category a different set of actions are taken to activate the dormant demat holders. | The larger push for activation is through our digital channels by understanding their other investments, by understanding their kind of investment philosophy and then sending the nudges and sending the attractive opportunities to invest in the market. So, these are the steps which we take depending on the customer investment philosophy and customer behavior. | Suraj Shinde: Okay. My last question is that digital adoption is something that is rising right now. What percent of revenue is now coming from digital channels and how do we see this evolving? | Ayush Sharma: Around 70% is coming from digital channels. When I say digital channels, these are trades executed on the platform. It can be our mobile app, it can be web trading platform. The offline channels include the call & trade facility and dealer terminals. So, you can see 70% of the revenue is generated through trades placed on the online modes. | Suraj Shinde: Okay, sir. That helps. Thank you, sir. | Moderator: Thank you. The next question is from the line of Shruti Sharma from Family Office. Thank you and over to you. | Shruti Sharma: My first question is could you share your near-term AUM target for the AMC segment for FY27 and also provide some colour on the cost structure for running the AMC business? | Ayush Sharma: Okay. Our one-year target in the AMC business, is to reach at Rs. 1,000 Cr of AUM at the close of FY27. | Shruti Sharma: Okay. In the insurance distribution segment, how is the corporate versus retail mix expected to evolve going forward? What is the target mix management is working on much? | A", "Angel": "[Slide 1] Classified as Internal | AngelOne logo | To,\nListing Department                                  Department of Corporate Service | National Stock Exchange of India Limited        BSE Limited | Exchange Plaza, C-1, G Block,                       Phiroze Jeejeebhoy Towers,\nBandra Kurla Complex,                               Dalal Street, | Bandra (East), Mumbai - 400 051.                    Mumbai - 400 001. | Symbol: ANGELONE                                Scrip Code: 543235 | Dear Sirs/ Ma’am, | Sub: Investor(s) Presentation | With reference to above captioned subject, please find attached Investor presentation. The Presentation will be uploaded on the Company's website at <u> | [www.angelone.in](http://www.angelone.in) | </u> | Request you to kindly take the same on record. | Thanking you, | For Angel One Limited | NAHEED REHAN PATEL [signature: Digitally signed by NAHEED REHAN PATEL Date: 2026.01.15 18:24:15 +05'30'] | Naheed Patel | Company Secretary and Compliance Officer | ACS: 22506 | Date: January 15,2026\nPlace: Mumbai | Encl: As above | EMPOWERING INVESTORS A SEBI Initiative logo | Corporate & Regd Office:\n601, 6th Floor, Ackruti Star, Central Road, MIDC, Andheri (E), Mumbai - 400093.\nT: (022) 4000 3600\nF: (022) 4000 3609\nE: | <support@angelone.in> | [www.angelone.in](http://www.angelone.in) | Angel One Limited\nCIN: L67120MH1996PLC101709,\nSEBI Registration No Stock Broker:INZ000161534,\nCDSL: IN-DP-384-2018, PMS:INP000001546,\nResearch Analyst: INH000000164, Investment Advisor: INA000008172,\nAMFI Regn. No. ARN–77404, PFRDA, Regn. No.-19092018. | Classified as Internal\n[Slide 2] Classified as Internal | AngelOne logo | ONE PLATFORM. | COUNTLESS JOURNEYS. | A BILLION STORIES. | Q3 ’26 Investor Presentation | 15ᵗʰ January 2026\n[Slide 3] Classified as Internal | Safe Harbour | AngelOne logo | This presentation and the accompanying slides (the “Presentation”), which have been prepared by Angel One Limited (the “Company”), have been prepared solely for information purposes and do not constitute any offer, recommendation or invitation to purchase or subscribe for any securities, and shall not form the basis or be relied on in connection with any contract or binding commitment whatsoever. No offering of securities of the Company will be made except by means of a statutory offering document containing detailed information about the Company. | This Presentation has been prepared by the Company based on information and data which the Company considers reliable, but the Company makes no representation or warranty, express or implied, whatsoever, and no reliance shall be placed on, the truth, accuracy, completeness, fairness and reasonableness of the contents of this Presentation. This Presentation may not be all inclusive and may not contain all of the information that you may consider material. Any liability in respect of the contents of, or any omission from, this Presentation is expressly excluded. | Certain matters discussed in this Presentation may contain statements regarding the Company’s market opportunity and business prospects that are individually and collectively forward-looking statements. Such forward-looking statements are not guarantees of future performance and are subject to known and unknown risks, uncertainties and assumptions that are difficult to predict. These risks and uncertainties include, but are not limited to, the performance of the Indian economy and of the economies of various international markets, the performance of the broking industry in India, competition, the company’s ability to successfully implement its strategy, the Company’s future levels of growth and expansion, technological implementation, changes and advancements, changes in revenue, income or cash flows, the Company’s market preferences and its exposure to market risks, as well as other risks. The Company’s actual results, levels of activity, performance or achievements could differ materially and adversely from results expressed in or implied by this Presentation. The Company assumes no obligation to update any forward-looking information contained in this Presentation. Any forward-looking statements and projections made by third parties included in this Presentation are not adopted by the Company and the Company is not responsible for such third party statements and projections. | 2\n[Slide 4] Classified as Internal | » Table Of Contents AngelOne logo | 01 Angel One: A Fintech Platform | 02 Business Model: Angel’s Advantage | 03 Industry Landscape | 04 Financial Overview | 05 About Us | 06 Annexures | decorative abstract wave graphic with orange dots | 3\n[Slide 5] Classified as Internal\n\nAngelOne logo | Q3 ‘26 Key Highlights | Platform Metrics | 35.7 Mn (+4.8% QoQ)\nTotal Client Base | 1.7 Mn (+0.5% QoQ)\nGross Client Acquisition | ₹ 1.5 Trn (+5.6% QoQ)\nAssets Under Custody\n(8.7 Mn No of Clients) | | Category              | Percentage |\n| --------------------- | ---------- |\n| Brokerage - F\\&O      | 44%        |\n| Brokerage - Commodity | 6%         |\n| Interest              | 33%        |\n| Depository            | 4%         |\n| Distribution          | 4%         |\n| Other Income          | 1%         |\n| Brokerage - Cash      | 8%         | | Broking | 16.5% (+8 bps QoQ)\nDemat A/c Market Share | 20.4% (-4 bps QoQ)\nOverall Retail Equity T/o Market Share* | 380 Mn (+5.4% QoQ)\nNumber of Orders | ₹ 59 Bn (+10.4% QoQ)\nAvg. Client Funding Book | ₹ 4.1 Bn (+24.8% QoQ)\nEBDAT | ₹ 2.7 Bn (+26.9% QoQ)\nPAT | Emerging Businesses | Distribution | ₹ 7.1 Bn (+55.7% QoQ)\nCredit Disbursed | > 100 k\nCredit Clients | 2.3 Mn (+2.6% QoQ)\nUnique SIPs Registered | 3.3 Mn\nMF Clients | Wealth Management | ₹ 82.2 Bn (+33.7% QoQ)\nAUM | ~1,600\n# of Clients | Asset Management | ₹ 4.7 Bn (16.7% QoQ)\nAUM | 9\n# of Schemes | Share in India’s demat accounts = Angel’s Total Client Base / Total Demat Accounts in India as on 31ˢᵗ Dec 2025\n\\*Share in Overall Retail Equity Turnover is based on retail turnover in cash segment, notional turnover in equity futures and premium turnover in equity options segment\nAUM of Asset Management is as of 31ˢᵗ Dec 2025\nAssets under custody includes client holdings in direct equity and mutual funds as on 31ˢᵗ Dec 2025\nNumber of clients with assets under custody representing the count of unique clients with holdings in either equity, mutual funds or both\n\\# of MF Clients represents count of clients who have ever taken a mutual fund product from the platform\n\nTotal Net Income = Total Gross Income – Fees & Commission Exp – Finance Cost\nEBDAT = Total Net Income - Emp. Cost - Other Opex\nEBDAT = Earnings Before Depreciation, Amortisation and Tax\n\n4\n[Slide 6] Classified as Internal | A Full Stack Fintech Platform | AngelOne logo | Scaling digitally through omnichannel approach | Strengthening leadership position | Enhancing engagement with client first focus | Growing profitably and sustainably | A Holistic Financial Ecosystem Designed to Serve Every Client: Building a healthy mix of fee based and annuity-based businesses | | Broking                                       | Wealth Management                      | Asset Management                        | Mutual Funds                    | Credit                                 | Fixed Deposits                    | Insurance                   |\n| --------------------------------------------- | -------------------------------------- | --------------------------------------- | ------------------------------- | -------------------------------------- | --------------------------------- | --------------------------- |\n| Platform leveraging AI & predictive analytics | Leveraging technology to achieve scale | In-house passive & index fund solutions | Personalized investing journeys | Data-led lending for smarter discovery | Simplified access to safe returns | Need-based protection plans | | Platform Approach | * [x] Leverage data & AI to increase LTV\n\n* [x] Embed intelligence in every product journey\n\n* [x] Drive retention via ecosystem lock-in | AI powered omnichannel platform meeting the diverse financial needs of clients across generations and demographics | 5\n[Slide 7] Classified as Internal | Angel One Platform: Technology Deepening India’s Financialisation Journey | AngelOne logo | ISO/IEC 27001:2022\nInformation Security\nManagement\nSystem | ISO 22301:2019\nBusiness Continuity\nManagement\nSystems | Backend | * Artificial Intelligence & Machine Learning\n* Distributed Systems & Hybrid Cloud Model\n* Real Time Data & Streaming\n* Fault Tolerance & Resilience | Frontend | * Broking & Allied Products\n* Distribution: 3rd Party Financial Products\n* Wealth Management\n* Asset Management | [x] Tech that elevates every interaction | * Client experience | [x] AI/ML personalization & advisory engine | * Curated investment ideas across assets | [x] Real-time analytics and insights | * Low-latency, high-efficiency platform | [x] Open source & API integrations | * Access to a wider product suite | [x] Scalable, Fault-Tolerant Systems | * High uptime, fast and reliable platform | [x] Multi-Layered Security Architecture | * Multi-Factor Authentication (MFA), Enterprise-Grade Encryption | Angel One has leveraged technology to become a digital-first comprehensive financial services platform\n\n6\n[Slide 8] Classified as Internal | AI: Proprietary Models Developed To Enhance Efficiency AngelOne logo | Client-Centric AI Solutions | 1.5x Volume of calls handled | 90% Answer accuracy rate | 80% Users resolve queries on \"Ask Angel\" | “Ask Angel”: Captively Developed, AI-powered chatbots | * Offers fast and reliable query resolution in mutual funds and equities segments\n\n* Clients can type their queries or use contextual widgets to receive prompt and personalized responses\n\n* Robust hybrid architecture, leveraging both open-source and enterprise-grade AI models, further enhanced through proprietary agentic methodologies and strong guardrails | Query Resolution Time | | Model     | Resolution Time (sec)             |\n| --------- | --------------------------------- |\n| Old Model | \\[value]                          |\n| Ask Angel | ~~\\[old value]~~ \\[new value] | | (Note: The chart visually indicates a 67% reduction in time from the Old Model to Ask Angel.) | Organisation Focused AI Solutions | “Data Analyst Agent (DAA) ”: AI-powered data assistant (Beta) | * A conversational analytics tool built in-house to enhance data driven decision making abilities\n\n* Simple but powerful agent that supports cross-domain analysis, handles nested conversations and drastically reduces latency\n\n* Strategic shift towards attaining better operating efficiencies by handling big data effortlessly | | Decision Latency | Productivity |\n| ---------------- | ------------ | | | Decision Latency chart showing reduction from Hours to Minutes | Productivity chart showing increase from Manual Analytics to AI Analytics |\n| -------------------------------------------------------------- | ------------------------------------------------------------------------- | | | Sharper Insights | Faster Decisions |\n| ---------------- | ---------------- | | AI Coding Adoption (Beta) | * Accelerating our engineering throughput by adopting Agentic AI\n\n* AI being embedded across full SDLC, reducing development cycles\n\n* Enables engineers to focus on complex architecture, performance and platform resilience\n\n* Optimises development cycles, yielding better productivity | 7\n[Slide 9] Classified as Internal | Brand & Product Suite: Evolved To Serve All Financial Needs Of India | Angel One logo | Maximizing client lifetime value | | FY20       | FY21       | FY22       | FY23       | FY24 | FY25       | FY26 |\n| ---------- | ---------- | ---------- | ---------- | ---- | ---------- | ---- |\n| FY20 stamp | FY21 stamp | FY22 stamp | FY23 stamp | FY24 | FY25 stamp | FY26 | | | Digital Foundation | Successful IPO | Redefining Brand | Super App & MF Launch | Foray Into Wealth & Asset Management | Deepening Engagement & Brand Visibility | Expanding Horizons |\n| ------------------ | -------------- | ---------------- | --------------------- | ------------------------------------ | --------------------------------------- | ------------------ |\n|                    |                |                  |                       |                                      |                                         |                    | | Digitised journeys to improve client experience</td>\n<td> | Raised ₹6 Bn through IPO, accelerated new product development, scaled-up MTF book and made strategic investment in tech stack</td>\n<td> | Changed name to Angel One with a new brand logo to resonate the shift from single product to multiple product in financial services</td>\n<td> | Architected and productised based on S.T.A.R.S* pillars to ease investments across various asset classes<br/><br/>Multifold growth witnessed in MF SIPs</td>\n<td> | Onboarded industry veterans and built an experienced team to steer our wealth management and mutual fund strategy</td>\n<td> | Expanded product suite to include credit, fixed income, captive MF Schemes & Wealth Management.<br/><br/>Invested in strengthening the Angel One brand visibility</td>\n<td> | Leveraging AI to enhance platform affinity<br/><br/>Formed a JV with LivWell Holdings to build a tech-led life insurance business</td>\n</tr> | </table> | Built an ecosystem to integrate and scale financial services | 8 \\* S.T.A.R.S: Simplicity, Transparency, Availability, Reliability, Swiftness\n[Slide 10] Classified as Internal | A. Broking: Core Scale Digital Engine | AngelOne logo | Balanced Omnichannel Mix In Client Base | | Period | Direct Clients (%) | Assisted Business (%) |\n| ------ | ------------------ | --------------------- |\n| Q3 '25 | 77%                | 23%                   |\n| Q4 '25 | 77%                | 23%                   |\n| Q1 '26 | 78%                | 22%                   |\n| Q2 '26 | 78%                | 22%                   |\n| Q3 '26 | 78%                | 22%                   | | Demat Market Share | | Period | Demat Market Share (%) |\n| ------ | ---------------------- |\n| FY24   | 14.7%                  |\n| FY25   | 16.1%                  |\n| Q3 '25 | 15.9%                  |\n| Q3 '26 | 16.5%                  | | Order Trajectory (Mn) | | Period | Orders (Mn) |\n| ------ | ----------- |\n| FY24   | 1,409       |\n| FY25   | 1,700       |\n| Q3 '25 | 422         |\n| Q3 '26 | 380         | | Assisted Business: A Key Differentiator | 10k Authorised Persons | 11k Mutual Fund Distributors | Authorised Persons | Mutual Fund Distributors | Overall ADTO (₹ Trn) | | Period | Overall ADTO (₹ Trn) |\n| ------ | -------------------- |\n| FY24   | 0.6                  |\n| FY25   | 0.8                  |\n| Q3 '25 | 0.9                  |\n| Q3 '26 | 1.9                  | | Average Client Funding Book (₹ Bn) | | Period | Average Client Funding Book (₹ Bn) |\n| ------ | ---------------------------------- |\n| FY24   | 16.0                               |\n| FY25   | 36.5                               |\n| Q3 '25 | 40.5                               |\n| Q3 '26 | 58.6                               | | * Strong pan-India network of digital savvy channel partners for deeper connect with multi product offerings\n\n* Tech-enabled assisted business combines trust with scale | Overall Retail Equity Turnover Market Share | | Period | Overall Retail Equity Turnover Market Share (%) |\n| ------ | ----------------------------------------------- |\n| FY24   | 17.1%                                           |\n| FY25   | 19.5%                                           |\n| Q3 '25 | 20.1%                                           |\n| Q3 '26 | 20.4%                                           | | Net Broking Revenue | | Period | Direct Business (%) | Assisted Business (%) |\n| ------ | ------------------- | --------------------- |\n| FY24   | 77%                 | 23%                   |\n| FY25   | 77%                 | 23%                   |\n| Q3 '25 | 76%                 | 24%                   |\n| Q3 '26 | 77%                 | 23%                   | | 9\nOverall ADTO is average daily turnover in cash segment, notional turnover in equity futures and commodity segments and premium turnover in equity options segment. Market Share is the ratio of Angel One's ADTO divided by Retail ADTO of NSE and BSE. Overall Retail Equity Turnover Market Share is based on retail turnover in cash segment, notional turnover in equity futures and premium turnover in equity options segment.\n[Slide 11] Classified as Internal | A. Broking: Business Maturing With Regulations AngelOne logo | Business Has Demonstrated Better Growth Post All Regulatory Changes (Mn) | Peak Margin Norms In Cash Segment | <mark>2.2x Growth In Average Daily Orders</mark> | | Month  | Average Daily Orders (Mn) |\n| ------ | ------------------------- |\n| Dec-20 | 1.4                       |\n| Mar-21 |                           |\n| Jun-21 |                           |\n| Sep-21 | 3.0                       | | Continuing regulations like cash-collateral segregation, upstreaming of client funds, quarterly payout, ASBA | <mark>2.4x Growth In Average Daily Orders</mark> | | Month  | Average Daily Orders (Mn) |\n| ------ | ------------------------- |\n| May-22 | 3.4                       |\n| Aug-22 |                           |\n| Nov-22 |                           |\n| Feb-23 |                           |\n| May-23 |                           |\n| Aug-23 |                           |\n| Nov-23 |                           |\n| Feb-24 | 8.2                       | | F&O regulations | Order Run Rate Scaling Up, Despite Tough Market Conditions | | Month  | Average Daily Orders (Mn) |\n| ------ | ------------------------- |\n| Feb-25 | 5.0                       |\n| Apr-25 |                           |\n| Jun-25 |                           |\n| Aug-25 |                           |\n| Oct-25 |                           |\n| Dec-25 | 5.9                       | | (Monthly Avg. Daily Orders) | * "};
+
+const COMPANIES = Object.keys(COMPANY_DATA);
+let apiKey = localStorage.getItem('gemini_key') || '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';
+let currentView = 'overview';
+let overviewLoaded = false;
+let compareLoaded = false;
+
+if (apiKey) {
+  document.getElementById('api-key-input').value = apiKey;
+  document.getElementById('key-status').textContent = 'Connected ✓';
+  document.getElementById('key-status').className = 'status ok';
+}
+
+function saveKey() {
+  apiKey = document.getElementById('api-key-input').value.trim();
+  if (!apiKey) return;
+  localStorage.setItem('gemini_key', apiKey);
+  document.getElementById('key-status').textContent = 'Connected ✓';
+  document.getElementById('key-status').className = 'status ok';
+  // Trigger current view
+  if (currentView === 'overview' && !overviewLoaded) loadOverview();
+  if (currentView === 'compare' && !compareLoaded) loadCompare();
+}
+
+async function callGemini(prompt) {
+  const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + apiKey,
+      'HTTP-Referer': 'https://tiiny.host',
+      'X-Title': 'Broking Research Dashboard'
+    },
+    body: JSON.stringify({
+      model: 'google/gemini-flash-1.5',
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: 1500
+    })
+  });
+  const d = await res.json();
+  if (d.error) throw new Error(d.error.message);
+  return d.choices[0].message.content;
+}
+
+function buildContext(companies) {
+  return companies.map(c => `\n\n=== ${c} ===\n${COMPANY_DATA[c]}`).join('');
+}
+
+function showView(name) {
+  ['overview','compare','chat','company'].forEach(v => {
+    document.getElementById('view-'+v).style.display = 'none';
+  });
+  ['overview','compare','chat'].forEach(v => {
+    document.getElementById('nav-'+v).classList.remove('active');
+  });
+  document.getElementById('view-'+name).style.display = name === 'chat' ? 'flex' : 'block';
+  if (document.getElementById('nav-'+name)) document.getElementById('nav-'+name).classList.add('active');
+  // Remove active from company nav items
+  COMPANIES.forEach(c => {
+    const el = document.getElementById('nav-'+c.replace(/ /g,'-'));
+    if (el) el.classList.remove('active');
+  });
+  currentView = name;
+  if (name === 'overview' && !overviewLoaded && apiKey) loadOverview();
+  if (name === 'compare' && !compareLoaded && apiKey) loadCompare();
+}
+
+function showCompany(name) {
+  showView('company');
+  COMPANIES.forEach(c => {
+    const el = document.getElementById('nav-'+c.replace(/ /g,'-'));
+    if (el) el.classList.remove('active');
+  });
+  const el = document.getElementById('nav-'+name.replace(/ /g,'-'));
+  if (el) el.classList.add('active');
+  loadCompanyDetail(name);
+}
+
+async function loadOverview() {
+  if (!apiKey) return;
+  overviewLoaded = true;
+  const el = document.getElementById('overview-content');
+  el.innerHTML = '<div class="loading"><div class="spinner"></div> Generating insights from all 5 companies...</div>';
+  const ctx = buildContext(COMPANIES);
+  const prompt = `You are a senior investment analyst. Here is data from presentations and reports of 5 Indian broking/fintech companies:${ctx}
+
+Generate a structured dashboard analysis with these sections (use plain text, no markdown symbols like ** or ##):
+
+1. COMPANY SNAPSHOTS
+For each company, write 2-3 sentences: what they do, their core business model, and one standout fact or metric.
+
+2. KEY METRICS OBSERVED
+List the most important numbers you found across the documents (revenue, users, AUM, growth %, etc.) — one line per metric with company name.
+
+3. THEMES ACROSS ALL COMPANIES
+List 3-4 common strategic themes you see across these companies.
+
+4. STANDOUT OBSERVATIONS
+2-3 notable differences or interesting patterns between companies.
+
+Be specific and factual. Only state what is actually in the documents. Keep total response under 600 words.`;
+  try {
+    const text = await callGemini(prompt);
+    const sections = text.split(/\n(?=\d\.)/);
+    el.innerHTML = sections.map(s => `<div class="insight-box"><pre style="white-space:pre-wrap;font-family:inherit;font-size:13.5px;line-height:1.7">${s.trim()}</pre></div>`).join('');
+  } catch(e) {
+    el.innerHTML = `<div class="no-api"><strong>Error:</strong> ${e.message}<br><br>
+    Common fixes:<br>
+    • Make sure your API key is from <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--accent)">aistudio.google.com/app/apikey</a><br>
+    • The key should start with "AIza..."<br>
+    • Make sure the Gemini API is enabled for your Google account</div>`;
+    overviewLoaded = false;
+  }
+}
+
+async function loadCompare() {
+  if (!apiKey) return;
+  compareLoaded = true;
+  const el = document.getElementById('compare-content');
+  el.innerHTML = '<div class="loading"><div class="spinner"></div> Building comparison table...</div>';
+  const ctx = buildContext(COMPANIES);
+  const prompt = `You are a senior investment analyst. Here is data from presentations and reports of 5 Indian broking/fintech companies:${ctx}
+
+Create a comparison table. Return ONLY a JSON array (no markdown, no backticks, just raw JSON) in this exact format:
+[
+  {"metric": "Business Model", "Groww": "...", "Kotak": "...", "Motilal Oswal": "...", "Choice": "...", "Angel": "..."},
+  {"metric": "Key Revenue Stream", ...},
+  {"metric": "Primary Customer", ...},
+  {"metric": "Notable Metric/Number", ...},
+  {"metric": "Core Differentiator", ...},
+  {"metric": "Key Risk Mentioned", ...},
+  {"metric": "Growth Focus", ...}
+]
+Keep each cell to 1-2 short sentences max. Only use facts from the documents. If info is not available for a company, write "Not mentioned".`;
+  try {
+    const text = await callGemini(prompt);
+    const clean = text.replace(/```json|```/g,'').trim();
+    const rows = JSON.parse(clean);
+    let html = '<table class="compare-table"><thead><tr><th>Metric</th>';
+    COMPANIES.forEach(c => html += `<th>${c}</th>`);
+    html += '</tr></thead><tbody>';
+    rows.forEach(row => {
+      html += `<tr><td><strong>${row.metric}</strong></td>`;
+      COMPANIES.forEach(c => html += `<td>${row[c] || 'N/A'}</td>`);
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
+    el.innerHTML = html;
+  } catch(e) {
+    el.innerHTML = `<div class="no-api"><strong>Error:</strong> ${e.message}</div>`;
+    compareLoaded = false;
+  }
+}
+
+async function loadCompanyDetail(name) {
+  const el = document.getElementById('company-content');
+  el.innerHTML = `<div class="detail-header"><div class="detail-badge">${name}</div></div>`;
+  if (!apiKey) {
+    el.innerHTML += '<div class="no-api"><strong>Connect your Gemini API key</strong> to generate a detailed analysis for this company.</div>';
+    el.innerHTML += `<br><p class="section-title">Raw Extracted Text</p><div class="raw-text">${COMPANY_DATA[name].replace(/</g,'&lt;')}</div>`;
+    return;
+  }
+  el.innerHTML += '<div class="loading" id="company-loading"><div class="spinner"></div> Analysing ' + name + '...</div>';
+  const prompt = `You are a senior investment analyst. Here is data from ${name}'s presentation or annual report:
+
+${COMPANY_DATA[name]}
+
+Write a detailed company analysis covering (use plain text headings, no markdown symbols):
+
+COMPANY OVERVIEW
+What the company does, its core business, and history.
+
+BUSINESS MODEL
+How it makes money. Key revenue streams.
+
+KEY METRICS & FINANCIALS
+All specific numbers you can find — revenue, users, AUM, growth rates, margins, etc.
+
+PRODUCTS & SERVICES
+Main offerings and target customers.
+
+COMPETITIVE POSITION
+How they differentiate, their moat, market position.
+
+KEY RISKS
+Risks mentioned or implied in the document.
+
+NOTABLE TAKEAWAYS
+2-3 things that stand out about this company.
+
+Be specific. Only use facts from the document. Under 500 words total.`;
+  try {
+    const text = await callGemini(prompt);
+    document.getElementById('company-loading').remove();
+    const sections = text.split(/\n(?=[A-Z ]{4,}\n)/);
+    el.innerHTML += sections.map(s => `<div class="insight-box"><pre style="white-space:pre-wrap;font-family:inherit;font-size:13.5px;line-height:1.7">${s.trim()}</pre></div>`).join('');
+  } catch(e) {
+    document.getElementById('company-loading').remove();
+    el.innerHTML += `<div class="no-api"><strong>Error:</strong> ${e.message}</div>`;
+  }
+}
+
+async function sendChat() {
+  const input = document.getElementById('chat-input');
+  const q = input.value.trim();
+  if (!q) return;
+  if (!apiKey) {
+    addMsg('assistant', 'Please connect your Gemini API key at the top to use the chat.');
+    return;
+  }
+  addMsg('user', q);
+  input.value = '';
+  document.getElementById('send-btn').disabled = true;
+  const loadId = 'load-' + Date.now();
+  addMsg('assistant', '...', loadId);
+  const ctx = buildContext(COMPANIES);
+  const prompt = `You are a senior investment analyst assistant. You have access to presentations and annual reports from 5 Indian broking/fintech companies — Groww, Kotak, Motilal Oswal, Choice, and Angel.
+
+Here is the data:${ctx}
+
+Answer the following question using only the above data. Be specific, cite company names, and quote actual numbers or facts when available. If something is not in the documents, say so clearly.
+
+Question: ${q}`;
+  try {
+    const text = await callGemini(prompt);
+    document.getElementById(loadId).textContent = text;
+  } catch(e) {
+    document.getElementById(loadId).textContent = 'Error: ' + e.message;
+  }
+  document.getElementById('send-btn').disabled = false;
+}
+
+function addMsg(role, text, id) {
+  const wrap = document.getElementById('chat-messages');
+  const div = document.createElement('div');
+  div.className = 'msg ' + (role === 'user' ? 'user' : '');
+  div.innerHTML = `<div class="msg-avatar">${role==='user'?'You':'AI'}</div><div class="msg-bubble"${id?' id="'+id+'"':''}>${text}</div>`;
+  wrap.appendChild(div);
+  wrap.scrollTop = wrap.scrollHeight;
+}
+
+function fillQ(q) {
+  document.getElementById('chat-input').value = q;
+  showView('chat');
+  document.getElementById('chat-input').focus();
+}
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); }
+}
+
+// Auto-load overview if key already present
+if (apiKey) loadOverview();
+</script>
+</body>
+</html>
